@@ -1,0 +1,20 @@
+{
+  "seq": 1,
+  "plugins": {
+    "hello-world": [
+      {
+        "version": "1.0.0",
+        "engines": {
+          "bridge": ">=6.74",
+          "pluginApi": 2
+        },
+        "restart": false,
+        "url": "https://github.com/Wode44398/bridge-plugins/releases/download/hello-world-v1.0.0/hello-world-1.0.0.zip",
+        "sha256": "ce33fe4b0410eb630320b0ca7cc36d3ea27b7536ccbd869f627711dddc05b345",
+        "size": 5347,
+        "date": "2026-10-28",
+        "notes": "首个市场版本"
+      }
+    ]
+  }
+}
