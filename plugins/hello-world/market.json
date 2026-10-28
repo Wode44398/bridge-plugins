@@ -1,0 +1,7 @@
+{
+  "nameEn": "Hello World (example)",
+  "descriptionEn": "Plugin example: an endpoint, a tool for Claude, an agent action, an auto-generated settings form and a plugin page.",
+  "notes": {
+    "1.0.0": "首个市场版本"
+  }
+}
