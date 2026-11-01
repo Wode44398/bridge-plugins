@@ -1,0 +1,7 @@
+{
+  "nameEn": "QQ bot",
+  "descriptionEn": "Connect QQ groups and private chats to Claude through NapCat (OneBot 11). One sandbox per group, no extra account needed; bridge starts NapCat, configures it and handles login by QR code.",
+  "notes": {
+    "2.1.0": "首个市场版本：每个群一个隔离沙箱、群聊记录（含图片）、Claude 能把文件直接发进群、@机器人 /chat 发专属对话页、群管理在群里暂停 / 继续 / 重置；由 bridge 拉起 NapCat 时自动配好网络，控制台里扫码登录、逐群开关回答；每天回答轮数有上限。"
+  }
+}

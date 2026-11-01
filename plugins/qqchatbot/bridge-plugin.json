@@ -1,0 +1,367 @@
+{
+  "id": "qqchatbot",
+  "name": "QQ 机器人",
+  "version": "2.1.0",
+  "description": "把 QQ 群和私聊接到 Claude：群友 @ 机器人或用前缀提问，回答发回 QQ。每个群一个独立沙箱（无命令行、碰不到主机文件），不需要建账号或开多用户。连接 NapCat 等任何 OneBot 11 协议端。",
+  "author": "claude-bridge",
+  "category": "third-party",
+  "entry": "index.mjs",
+  "engines": {
+    "bridge": ">=7.02",
+    "pluginApi": 3
+  },
+  "permissions": [
+    "sandbox",
+    "files",
+    "share",
+    "process",
+    "webhook",
+    "network",
+    "notify",
+    "schedule",
+    "routes"
+  ],
+  "config": {
+    "mode": {
+      "type": "string",
+      "enum": [
+        {
+          "value": "external",
+          "label": "已经在跑"
+        },
+        {
+          "value": "managed",
+          "label": "由 bridge 拉起"
+        }
+      ],
+      "default": "managed",
+      "widget": "segmented",
+      "section": "连接协议端",
+      "label": "协议端（NapCat）",
+      "desc": "「由 bridge 拉起」（推荐）= 插件开着时 bridge 帮你启动 NapCat、自动配好它的网络设置、崩了或 QQ 掉线自动重启；「已经在跑」= NapCat 你自己启动、自己配。"
+    },
+    "napcatDir": {
+      "type": "string",
+      "section": "连接协议端",
+      "label": "NapCat 目录",
+      "when": {
+        "mode": "managed"
+      },
+      "desc": "NapCat.Shell 解压出来的目录（里面有 node.exe 和 index.js）。填好后在控制台点「扫码登录 / 换号」。"
+    },
+    "napcatQQ": {
+      "type": "string",
+      "pattern": "^\\d{0,12}$",
+      "section": "连接协议端",
+      "label": "快速登录的 QQ 号",
+      "when": {
+        "mode": "managed"
+      },
+      "desc": "扫码登录后自动记下，下次快速登录不用再扫；一般不用手填。"
+    },
+    "napcatScript": {
+      "type": "string",
+      "section": "连接协议端",
+      "label": "启动脚本",
+      "default": "napcat.bat",
+      "when": {
+        "mode": "managed"
+      },
+      "desc": "目录里没有 node.exe + index.js 时才用。相对上面目录的文件名。"
+    },
+    "apiUrl": {
+      "type": "string",
+      "section": "连接协议端",
+      "label": "OneBot HTTP 地址",
+      "default": "http://127.0.0.1:3000",
+      "desc": "NapCat「HTTP 服务器」的地址（插件用它发消息）。由 bridge 拉起时会自动写进 NapCat，用默认就行；端口被占了再改。"
+    },
+    "apiToken": {
+      "type": "string",
+      "secret": true,
+      "section": "连接协议端",
+      "label": "HTTP 服务器 Token",
+      "desc": "由 bridge 拉起时留空 = 自动生成并写进 NapCat；自己跑 NapCat 时填它 HTTP 服务器里设的 token。"
+    },
+    "hookToken": {
+      "type": "string",
+      "secret": true,
+      "section": "连接协议端",
+      "label": "上报 Token（可选）",
+      "desc": "只有 NapCat 和 bridge 不在同一台电脑时才要：上报带这个 token。不填 = 只收本机直连的上报。"
+    },
+    "watchdog": {
+      "type": "boolean",
+      "default": true,
+      "section": "连接协议端",
+      "label": "看门狗",
+      "desc": "QQ 掉线时：「由 bridge 拉起」会自动重启 NapCat 续登，救不回来就提醒你扫码；「已经在跑」只提醒。"
+    },
+    "prefix": {
+      "type": "string",
+      "default": "/ai",
+      "max": 20,
+      "section": "什么时候回答",
+      "label": "触发前缀",
+      "desc": "群消息以它开头就回答；留空 = 只认 @。"
+    },
+    "replyAt": {
+      "type": "boolean",
+      "default": true,
+      "section": "什么时候回答",
+      "label": "@ 机器人时回答"
+    },
+    "privateReply": {
+      "type": "boolean",
+      "default": true,
+      "section": "什么时候回答",
+      "label": "回答私聊",
+      "desc": "好友私聊不用 @ 也不用前缀。"
+    },
+    "cooldownSec": {
+      "type": "integer",
+      "default": 3,
+      "min": 0,
+      "max": 120,
+      "widget": "slider",
+      "section": "什么时候回答",
+      "label": "每人冷却（秒）",
+      "desc": "同一个人连发时，间隔不到这么久的忽略。"
+    },
+    "paused": {
+      "type": "boolean",
+      "default": false,
+      "section": "什么时候回答",
+      "label": "暂停回答",
+      "desc": "临时让机器人闭嘴（仍然记录群聊）。群管理员也可以在群里发「/ai 暂停」「/ai 继续」。"
+    },
+    "dailyTurns": {
+      "type": "integer",
+      "default": 300,
+      "min": 0,
+      "max": 100000,
+      "section": "什么时候回答",
+      "label": "每天最多回答几轮",
+      "desc": "所有群和私聊加起来；到了就回一句「今天额度用完了」。0 = 不限。用的是服务器的 Claude 额度。"
+    },
+    "model": {
+      "type": "string",
+      "options": "claude.models",
+      "section": "怎么回答",
+      "label": "模型",
+      "desc": "不选 = 跟随 bridge 默认。"
+    },
+    "effort": {
+      "type": "string",
+      "options": "claude.efforts",
+      "widget": "chips",
+      "section": "怎么回答",
+      "label": "思考强度"
+    },
+    "fast": {
+      "type": "boolean",
+      "default": false,
+      "section": "怎么回答",
+      "label": "快速模式",
+      "desc": "支持的模型（Opus 系列）回答更快、更贵。"
+    },
+    "maxParallel": {
+      "type": "integer",
+      "default": 2,
+      "min": 1,
+      "max": 4,
+      "section": "怎么回答",
+      "label": "最多同时回答几个聊天",
+      "desc": "同一个群总是一个一个答；不同群可以并行。"
+    },
+    "plainReply": {
+      "type": "boolean",
+      "default": true,
+      "section": "怎么回答",
+      "label": "纯文本回复",
+      "desc": "QQ 不渲染 Markdown：让 Claude 用纯文本回（写进文件的内容不受影响）。"
+    },
+    "atSender": {
+      "type": "boolean",
+      "default": true,
+      "section": "怎么回答",
+      "label": "回答时 @ 提问的人"
+    },
+    "forward": {
+      "type": "string",
+      "enum": [
+        {
+          "value": "long",
+          "label": "长回答才折"
+        },
+        {
+          "value": "always",
+          "label": "总是"
+        },
+        {
+          "value": "never",
+          "label": "从不"
+        }
+      ],
+      "default": "long",
+      "widget": "segmented",
+      "section": "怎么回答",
+      "label": "合并转发",
+      "desc": "把回答折成一张「聊天记录」卡片，不刷屏。"
+    },
+    "forwardOver": {
+      "type": "integer",
+      "default": 600,
+      "min": 50,
+      "max": 10000,
+      "section": "怎么回答",
+      "label": "超过多少字算长回答",
+      "when": {
+        "forward": "long"
+      }
+    },
+    "maxSeg": {
+      "type": "integer",
+      "default": 3000,
+      "min": 200,
+      "max": 4500,
+      "section": "怎么回答",
+      "label": "每条消息最长（字）"
+    },
+    "sendFiles": {
+      "type": "boolean",
+      "default": true,
+      "section": "怎么回答",
+      "label": "把文件发进 QQ",
+      "desc": "Claude 做出的文件：图片直接发图，其它上传成群文件 / 私聊文件。"
+    },
+    "readImages": {
+      "type": "boolean",
+      "default": true,
+      "section": "怎么回答",
+      "label": "看图",
+      "desc": "提问里带的图、被引用消息里的图一起交给 Claude。"
+    },
+    "chatLog": {
+      "type": "boolean",
+      "default": true,
+      "section": "怎么回答",
+      "label": "记录群聊供 Claude 查阅",
+      "desc": "群里所有消息（含图片）按天记进这个群的沙箱，群友说「上面那个」「刚才那张图」时 Claude 能自己翻。"
+    },
+    "chatImgDays": {
+      "type": "integer",
+      "default": 30,
+      "min": 0,
+      "max": 3650,
+      "section": "怎么回答",
+      "label": "群聊图片保留几天",
+      "when": {
+        "chatLog": true
+      },
+      "desc": "每天凌晨清掉更早的图片；文字记录一直留着。0 = 永久保留。"
+    },
+    "snapChat": {
+      "type": "boolean",
+      "default": true,
+      "section": "怎么回答",
+      "label": "「/chat」发专属对话页",
+      "desc": "群友 @ 机器人发「/chat」时，给他一个网页链接单独和 Claude 聊（隔离工作区，闲置后自动销毁；要开着「快照对话」功能和公网地址）。"
+    },
+    "extraPrompt": {
+      "type": "string",
+      "widget": "textarea",
+      "max": 4000,
+      "section": "怎么回答",
+      "label": "额外的人设 / 要求",
+      "desc": "追加给 Claude 的系统提示，例如「你叫小克，回答尽量简短」。"
+    },
+    "allowGroups": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "options": "plugin",
+        "pattern": "^\\d+$"
+      },
+      "max": 200,
+      "section": "群",
+      "label": "群白名单",
+      "desc": "空 = 所有群都回答。"
+    },
+    "admins": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^\\d+$"
+      },
+      "max": 50,
+      "section": "群",
+      "label": "管理员 QQ",
+      "desc": "除群主 / 群管理外，还有谁能在群里用「/ai 重置」「/ai 暂停」「/ai 继续」。"
+    },
+    "groups": {
+      "type": "map",
+      "key": {
+        "label": "群号",
+        "options": "plugin",
+        "pattern": "^\\d+$"
+      },
+      "max": 500,
+      "section": "群",
+      "label": "按群设置",
+      "value": {
+        "enabled": {
+          "type": "boolean",
+          "default": true,
+          "label": "本群回答"
+        },
+        "model": {
+          "type": "string",
+          "options": "claude.models",
+          "label": "本群模型"
+        },
+        "effort": {
+          "type": "string",
+          "options": "claude.efforts",
+          "label": "本群思考强度"
+        },
+        "forward": {
+          "type": "string",
+          "enum": [
+            {
+              "value": "",
+              "label": "跟随全局"
+            },
+            {
+              "value": "long",
+              "label": "长回答才折"
+            },
+            {
+              "value": "always",
+              "label": "总是"
+            },
+            {
+              "value": "never",
+              "label": "从不"
+            }
+          ],
+          "default": "",
+          "label": "本群合并转发"
+        }
+      }
+    },
+    "legacyDir": {
+      "type": "string",
+      "section": "从旧版导入",
+      "label": "旧版 qq-bot 目录",
+      "desc": "以前单独跑的 qq-bot（管理台在 5700 端口）所在目录，填好后点上面的「从旧版导入」：设置和各群的群聊记录（含图片）搬过来。"
+    }
+  },
+  "ui": {
+    "panel": {
+      "page": "web/index.html",
+      "title": "QQ 机器人",
+      "icon": "chat"
+    }
+  }
+}

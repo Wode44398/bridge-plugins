@@ -1,0 +1,204 @@
+{
+  "name": "QQ bot",
+  "description": "Connect QQ groups and private chats to Claude: members @ the bot or use a prefix, and answers go back to QQ. Each group gets its own sandbox (no shell, no access to host files); no extra account or multi-user mode needed. Works with NapCat or any OneBot 11 endpoint.",
+  "ui": {
+    "panel": {
+      "title": "QQ bot"
+    }
+  },
+  "config": {
+    "mode": {
+      "label": "Endpoint (NapCat)",
+      "section": "Endpoint",
+      "desc": "\"Already running\" = you start NapCat yourself; \"Started by bridge\" = bridge starts it while the plugin is on, restarts it on crash or QQ logout, and stops it with the plugin.",
+      "enum": {
+        "external": "Already running",
+        "managed": "Started by bridge"
+      }
+    },
+    "napcatDir": {
+      "label": "NapCat folder",
+      "section": "Endpoint",
+      "desc": "The unpacked NapCat.Shell folder. If it has its own node.exe and index.js they are used directly; otherwise the start script below runs."
+    },
+    "napcatQQ": {
+      "label": "Quick-login QQ number",
+      "section": "Endpoint",
+      "desc": "Log in this account without scanning (it must have scanned once before). Empty = scan every time."
+    },
+    "napcatScript": {
+      "label": "Start script",
+      "section": "Endpoint",
+      "desc": "Only used when the folder has no node.exe + index.js. File name relative to the folder."
+    },
+    "apiUrl": {
+      "label": "OneBot HTTP address",
+      "section": "Endpoint",
+      "desc": "NapCat's \"HTTP server\" address (used to send messages)."
+    },
+    "apiToken": {
+      "label": "HTTP server token",
+      "section": "Endpoint",
+      "desc": "The token set on NapCat's HTTP server; leave empty if none."
+    },
+    "hookToken": {
+      "label": "Report token (optional)",
+      "section": "Endpoint",
+      "desc": "The token set on NapCat's \"HTTP client\". Empty = only accept reports from this machine."
+    },
+    "watchdog": {
+      "label": "Watchdog",
+      "section": "Endpoint",
+      "desc": "When QQ logs out: \"Started by bridge\" restarts NapCat to log back in and asks you to scan if that fails; \"Already running\" only notifies you."
+    },
+    "prefix": {
+      "label": "Trigger prefix",
+      "section": "When to answer",
+      "desc": "Group messages starting with it get an answer; empty = @ only."
+    },
+    "replyAt": {
+      "label": "Answer when @-mentioned",
+      "section": "When to answer"
+    },
+    "privateReply": {
+      "label": "Answer private chats",
+      "section": "When to answer",
+      "desc": "Friends' private messages need no @ or prefix."
+    },
+    "cooldownSec": {
+      "label": "Per-person cooldown (seconds)",
+      "section": "When to answer",
+      "desc": "Ignore repeat messages from the same person within this time."
+    },
+    "paused": {
+      "label": "Pause answering",
+      "section": "When to answer",
+      "desc": "Silence the bot for now (group chat is still recorded). Group admins can also send \"/ai 暂停\" / \"/ai 继续\"."
+    },
+    "dailyTurns": {
+      "label": "Max answers per day",
+      "section": "When to answer",
+      "desc": "Across all groups and private chats; after that it replies that today's quota is used up. 0 = unlimited. Uses the server's Claude quota."
+    },
+    "model": {
+      "label": "Model",
+      "section": "How to answer",
+      "desc": "Empty = bridge default."
+    },
+    "effort": {
+      "label": "Effort",
+      "section": "How to answer"
+    },
+    "fast": {
+      "label": "Fast mode",
+      "section": "How to answer",
+      "desc": "Faster and pricier answers on supported models (Opus)."
+    },
+    "maxParallel": {
+      "label": "Chats answered at once",
+      "section": "How to answer",
+      "desc": "One group is always answered in order; different groups can run in parallel."
+    },
+    "plainReply": {
+      "label": "Plain-text replies",
+      "section": "How to answer",
+      "desc": "QQ doesn't render Markdown: ask Claude for plain text (files it writes are unaffected)."
+    },
+    "atSender": {
+      "label": "@ the asker in replies",
+      "section": "How to answer"
+    },
+    "forward": {
+      "label": "Merged forward",
+      "section": "How to answer",
+      "desc": "Fold the answer into a \"chat history\" card instead of flooding the group.",
+      "enum": {
+        "long": "Long answers only",
+        "always": "Always",
+        "never": "Never"
+      }
+    },
+    "forwardOver": {
+      "label": "Long answer threshold (characters)",
+      "section": "How to answer"
+    },
+    "maxSeg": {
+      "label": "Max length per message (characters)",
+      "section": "How to answer"
+    },
+    "sendFiles": {
+      "label": "Send files to QQ",
+      "section": "How to answer",
+      "desc": "Files Claude makes: images as pictures, everything else as group / private files."
+    },
+    "readImages": {
+      "label": "Read images",
+      "section": "How to answer",
+      "desc": "Images in the question and in quoted messages go to Claude too."
+    },
+    "chatLog": {
+      "label": "Record group chat for Claude",
+      "section": "How to answer",
+      "desc": "Every group message (with images) is saved by day in the group's sandbox, so Claude can look back when someone says \"that one above\"."
+    },
+    "chatImgDays": {
+      "label": "Keep group images (days)",
+      "section": "How to answer",
+      "desc": "Older images are removed every night; text is kept. 0 = keep forever."
+    },
+    "snapChat": {
+      "label": "\"/chat\" sends a private chat page",
+      "section": "How to answer",
+      "desc": "When someone @s the bot with \"/chat\", give them a web link to talk to Claude alone (isolated workspace, closes when idle; needs Chat snapshots on and a public address)."
+    },
+    "extraPrompt": {
+      "label": "Extra persona / instructions",
+      "section": "How to answer",
+      "desc": "Appended to Claude's system prompt, e.g. \"Your name is Kai; keep answers short\"."
+    },
+    "allowGroups": {
+      "label": "Group allowlist",
+      "section": "Groups",
+      "desc": "Empty = answer in every group."
+    },
+    "admins": {
+      "label": "Admin QQ numbers",
+      "section": "Groups",
+      "desc": "Besides group owners / admins, who may use \"/ai 重置\", \"/ai 暂停\", \"/ai 继续\" in groups."
+    },
+    "groups": {
+      "label": "Per-group settings",
+      "section": "Groups",
+      "key": {
+        "label": "Group number"
+      },
+      "value": {
+        "fields": {
+          "enabled": {
+            "label": "Answer in this group"
+          },
+          "model": {
+            "label": "Model for this group"
+          },
+          "effort": {
+            "label": "Effort for this group"
+          },
+          "forward": {
+            "label": "Merged forward in this group",
+            "enum": {
+              "": "Follow global",
+              "long": "Long answers only",
+              "always": "Always",
+              "never": "Never"
+            }
+          }
+        }
+      }
+    },
+    "legacyDir": {
+      "label": "Old qq-bot folder",
+      "section": "Import from the old version",
+      "desc": "Folder of the old standalone qq-bot (admin page on port 5700). Fill it in, then press \"Import from old version\" above to bring over settings and each group's chat records (with images)."
+    }
+  }
+}
