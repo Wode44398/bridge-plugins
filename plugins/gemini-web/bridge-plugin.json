@@ -1,0 +1,172 @@
+{
+  "id": "gemini-web",
+  "name": "Gemini 网页版",
+  "version": "1.2.0",
+  "description": "把 gemini.google.com 网页端的订阅额度变成模型服务：插件托管一个本机反代（复刻网页端接口、多账号轮询、Cookie 自动续期），按你勾选的 agent 出现在 Claude 和 dimensio 的模型列表里。仅限个人自用。",
+  "author": "claude-bridge",
+  "category": "third-party",
+  "entry": "index.mjs",
+  "engines": {
+    "bridge": ">=7.05",
+    "pluginApi": 3
+  },
+  "permissions": [
+    "models",
+    "process",
+    "network",
+    "routes",
+    "notify"
+  ],
+  "ui": {
+    "panel": {
+      "page": "web/index.html",
+      "title": "Gemini 网页版",
+      "icon": "plugin"
+    },
+    "who": "host"
+  },
+  "config": {
+    "agents": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "options": "plugin"
+      },
+      "default": [
+        "claude",
+        "dimensio"
+      ],
+      "max": 4,
+      "section": "提供给",
+      "label": "哪些 agent 能用",
+      "desc": "勾上的 agent 的模型列表里会多出「Gemini 网页版」这个服务；不勾就不出现（反代照样在跑）。",
+      "widget": "checks"
+    },
+    "members": {
+      "type": "boolean",
+      "default": false,
+      "section": "提供给",
+      "label": "成员也能用",
+      "desc": "多用户服务端上，成员的 Claude / dimensio 也能选这些模型（用的是你的 Google 账号额度）。"
+    },
+    "name": {
+      "type": "string",
+      "default": "Gemini 网页版",
+      "max": 40,
+      "section": "提供给",
+      "label": "在模型列表里的名字"
+    },
+    "models": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "options": "plugin"
+      },
+      "default": [],
+      "max": 40,
+      "section": "提供给",
+      "label": "列出哪些模型",
+      "desc": "都不勾 = 账号里能用的都列出（网页端上坏掉的 3.8 Flash 除外：它要么不出字、要么回固定拒答）。列表来自账号的真实可用模型（测试一次账号后刷新）。",
+      "widget": "checks"
+    },
+    "defaultModel": {
+      "type": "string",
+      "options": "plugin",
+      "default": "",
+      "section": "提供给",
+      "label": "默认模型",
+      "desc": "不选 = 4 Argon（没有就第一个）。"
+    },
+    "deepThinking": {
+      "type": "boolean",
+      "default": false,
+      "section": "提供给",
+      "label": "默认开深度思考",
+      "desc": "推理强度菜单里「深度思考」档设为默认（更慢、更强）。每次对话仍可在推理强度里切换。"
+    },
+    "mode": {
+      "type": "string",
+      "enum": [
+        {
+          "value": "managed",
+          "label": "由 bridge 拉起"
+        },
+        {
+          "value": "external",
+          "label": "已经在跑"
+        }
+      ],
+      "default": "managed",
+      "widget": "segmented",
+      "section": "运行方式",
+      "label": "反代服务",
+      "desc": "「由 bridge 拉起」= 插件开着时自动启动反代、崩了自动重启（推荐）；「已经在跑」= 连一个你自己另外开着的 Gemini Proxy 反代。"
+    },
+    "python": {
+      "type": "string",
+      "default": "python",
+      "when": {
+        "mode": "managed"
+      },
+      "section": "运行方式",
+      "label": "Python",
+      "desc": "Python 3.10 以上的命令或路径（如 python、py -3、C:\\Python312\\python.exe）。第一次启动会在插件数据目录建虚拟环境并装依赖（约 1 分钟，要能连 PyPI），之后不再用它。"
+    },
+    "port": {
+      "type": "integer",
+      "default": 8765,
+      "min": 1024,
+      "max": 65535,
+      "when": {
+        "mode": "managed"
+      },
+      "section": "运行方式",
+      "label": "端口",
+      "desc": "只监听 127.0.0.1。被别的程序占着就换一个。"
+    },
+    "externalUrl": {
+      "type": "string",
+      "default": "http://127.0.0.1:8765",
+      "pattern": "^https?://",
+      "when": {
+        "mode": "external"
+      },
+      "section": "运行方式",
+      "label": "反代地址"
+    },
+    "apiKey": {
+      "type": "string",
+      "secret": true,
+      "default": "",
+      "when": {
+        "mode": "external"
+      },
+      "section": "运行方式",
+      "label": "反代的 API Key",
+      "desc": "反代设置里配了 API Key 才填。由 bridge 拉起时插件自己生成一个，不用管。"
+    },
+    "proxy": {
+      "type": "string",
+      "default": "",
+      "section": "网络",
+      "label": "访问 Google 用的代理",
+      "desc": "中国大陆需要，如 http://127.0.0.1:7890 或 socks5://127.0.0.1:7890。留空 = 沿用 bridge 自己的出站代理（bridge 换出口时自动跟上）；bridge 直连时就直连。装依赖时 pip 也走它。"
+    },
+    "cooldownSec": {
+      "type": "integer",
+      "default": 90,
+      "min": 0,
+      "max": 3600,
+      "section": "网络",
+      "label": "账号出错后冷却（秒）"
+    },
+    "requestTimeout": {
+      "type": "integer",
+      "default": 180,
+      "min": 30,
+      "max": 900,
+      "section": "网络",
+      "label": "单次请求超时（秒）"
+    }
+  }
+}

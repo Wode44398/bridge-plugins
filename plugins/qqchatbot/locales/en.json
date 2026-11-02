@@ -195,10 +195,29 @@
         }
       }
     },
-    "legacyDir": {
-      "label": "Old qq-bot folder",
-      "section": "Import from the old version",
-      "desc": "Folder of the old standalone qq-bot (admin page on port 5700). Fill it in, then press \"Import from old version\" above to bring over settings and each group's chat records (with images)."
+    "releaseRepos": {
+      "label": "GitHub repositories to watch",
+      "section": "Release announcements",
+      "desc": "One per line: \"owner/repo Display name\" (name optional). When one of these publishes a new stable release, the bot posts an update notice with a short summary to the groups below (checked every 5 minutes). Releases that already exist when a repo is added are not announced."
+    },
+    "releaseGroups": {
+      "label": "Post to these groups",
+      "section": "Release announcements",
+      "desc": "None selected = nothing is posted."
+    },
+    "releaseSummary": {
+      "label": "Change summary",
+      "section": "Release announcements",
+      "desc": "\"Claude summary\" = Claude condenses the release notes into 3-5 points (one turn of quota per release); falls back to the start of the notes if that fails.",
+      "enum": {
+        "claude": "Claude summary",
+        "notes": "Start of the notes"
+      }
+    },
+    "releasePrerelease": {
+      "label": "Announce pre-releases too",
+      "section": "Release announcements",
+      "desc": "By default only stable releases (not marked Pre-release on GitHub) are announced."
     }
   }
 }

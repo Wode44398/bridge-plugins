@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="theme-color" content="#f5f5f7" />
+<title>Gemini Proxy</title>
+<link rel="stylesheet" href="/static/app.css" />
+<script>
+  // 在样式生效前先定主题，避免深色系统下闪白
+  (function () {
+    var dark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+    document.documentElement.dataset.theme = dark ? "dark" : "light";
+    document.documentElement.style.colorScheme = dark ? "dark" : "light";
+  })();
+</script>
+</head>
+<body>
+<div id="app">
+
+  <!-- ======================= 侧边栏 ======================= -->
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-logo">
+        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path d="M12 2.6c.5 3.9 1.7 6.3 4.1 7.6 1.5.8 3.3 1.1 5.3 1.2-2 .1-3.8.4-5.3 1.2-2.4 1.3-3.6 3.7-4.1 7.6-.5-3.9-1.7-6.3-4.1-7.6-1.5-.8-3.3-1.1-5.3-1.2 2-.1 3.8-.4 5.3-1.2C10.3 8.9 11.5 6.5 12 2.6Z" fill="url(#bg1)"/>
+          <defs><linearGradient id="bg1" x1="2" y1="2" x2="22" y2="22">
+            <stop stop-color="#4f6ef7"/><stop offset="1" stop-color="#a855f7"/>
+          </linearGradient></defs>
+        </svg>
+      </div>
+      <div class="brand-text">
+        <div class="brand-name">Gemini Proxy</div>
+        <div class="brand-ver">v1.0.0 · 本地</div>
+      </div>
+    </div>
+
+    <nav class="nav" id="nav">
+      <button class="nav-item active" data-view="dashboard">
+        <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="9" rx="2"/><rect x="14" y="3" width="7" height="5" rx="2"/><rect x="14" y="12" width="7" height="9" rx="2"/><rect x="3" y="16" width="7" height="5" rx="2"/></svg>
+        <span>总览</span>
+      </button>
+      <button class="nav-item" data-view="accounts">
+        <svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.4"/><path d="M3.2 20c.5-3.4 2.9-5.2 5.8-5.2s5.3 1.8 5.8 5.2"/><path d="M16.5 11.2a3 3 0 1 0-1.3-5.7"/><path d="M17.6 14.9c2.1.4 3.4 2 3.7 4.4"/></svg>
+        <span>账号池</span>
+        <em class="nav-badge" id="nav-account-count">0</em>
+      </button>
+      <button class="nav-item" data-view="endpoints">
+        <svg viewBox="0 0 24 24"><path d="M9 7H6.5A4.5 4.5 0 0 0 6.5 16H9"/><path d="M15 7h2.5a4.5 4.5 0 0 1 0 9H15"/><path d="M8.5 11.5h7"/></svg>
+        <span>接口</span>
+      </button>
+      <button class="nav-item" data-view="logs">
+        <svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h11M4 18h7"/><circle cx="18.5" cy="17.5" r="2.2"/></svg>
+        <span>日志</span>
+      </button>
+      <button class="nav-item" data-view="settings">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.2"/><path d="M12 3v2.2M12 18.8V21M3 12h2.2M18.8 12H21M5.6 5.6l1.6 1.6M16.8 16.8l1.6 1.6M18.4 5.6l-1.6 1.6M7.2 16.8l-1.6 1.6"/></svg>
+        <span>设置</span>
+      </button>
+    </nav>
+
+    <div class="side-foot">
+      <div class="side-status">
+        <span class="pulse" id="side-dot"></span>
+        <span id="side-status-text">服务运行中</span>
+      </div>
+      <div class="side-endpoint" id="side-endpoint" title="点击复制">127.0.0.1:8765</div>
+    </div>
+  </aside>
+
+  <!-- ======================= 主区 ======================= -->
+  <main class="main">
+    <header class="topbar">
+      <div class="topbar-text">
+        <h1 id="page-title">总览</h1>
+        <p id="page-sub">把 Google 网页版的 Gemini 额度，变成任何客户端都能用的 API</p>
+      </div>
+      <div class="top-actions">
+        <button class="btn ghost" id="btn-refresh" title="刷新数据">
+          <svg viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.3-5.6"/><path d="M20 4v4.5h-4.5"/></svg>
+          刷新
+        </button>
+        <button class="btn primary" id="btn-add-account">
+          <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+          添加账号
+        </button>
+      </div>
+    </header>
+
+    <div class="content" id="content">
+
+      <!-- ---------- 总览 ---------- -->
+      <section class="view active" id="view-dashboard">
+        <div class="hero">
+          <div class="hero-glow"></div>
+          <div class="hero-main">
+            <div class="hero-label">API 接入地址</div>
+            <div class="hero-url">
+              <code id="hero-base-url">http://127.0.0.1:8765/v1</code>
+              <button class="icon-btn" id="btn-copy-base" title="复制">
+                <svg viewBox="0 0 24 24"><rect x="9" y="9" width="11" height="11" rx="2.5"/><path d="M15 5.5A2.5 2.5 0 0 0 12.5 3H6.5A2.5 2.5 0 0 0 4 5.5v6A2.5 2.5 0 0 0 6.5 14"/></svg>
+              </button>
+            </div>
+            <div class="hero-meta">
+              <span class="chip" id="chip-key"><i class="dot"></i><span>未设置 API Key</span></span>
+              <span class="chip" id="chip-models"><i class="dot"></i><span>— 个模型</span></span>
+              <span class="chip" id="chip-thinking"><i class="dot"></i><span>思考模式关闭</span></span>
+            </div>
+          </div>
+          <div class="hero-side">
+            <div class="hero-side-row"><span>运行时长</span><b id="stat-uptime">—</b></div>
+            <div class="hero-side-row"><span>账号在线</span><b id="stat-online">—</b></div>
+            <div class="hero-side-row"><span>最近一次请求</span><b id="stat-last">—</b></div>
+          </div>
+        </div>
+
+        <div class="stat-grid">
+          <div class="stat-card">
+            <div class="stat-head"><span>请求总数</span>
+              <svg viewBox="0 0 24 24"><path d="M4 17V9M10 17V5M16 17v-6M22 17v-3"/></svg>
+            </div>
+            <div class="stat-value" id="stat-total">0</div>
+            <div class="stat-foot" id="stat-total-foot">累计调用</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-head"><span>成功率</span>
+              <svg viewBox="0 0 24 24"><path d="M4 12.5 9 17.5 20 6.5"/></svg>
+            </div>
+            <div class="stat-value" id="stat-rate">—</div>
+            <div class="stat-foot" id="stat-rate-foot">全部请求</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-head"><span>平均延迟</span>
+              <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg>
+            </div>
+            <div class="stat-value" id="stat-latency">—</div>
+            <div class="stat-foot">端到端耗时</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-head"><span>Token 估算</span>
+              <svg viewBox="0 0 24 24"><path d="M7 4h10M7 20h10M9 4v6l-3 4 3 4v2M15 4v6l3 4-3 4v2"/></svg>
+            </div>
+            <div class="stat-value" id="stat-tokens">0</div>
+            <div class="stat-foot" id="stat-tokens-foot">输入 0 / 输出 0</div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head">
+            <div>
+              <h2>最近请求</h2>
+              <p>实时记录经过代理的每一次调用</p>
+            </div>
+            <button class="btn tiny ghost" id="btn-clear-requests">清空</button>
+          </div>
+          <div class="table-wrap">
+            <table class="table" id="req-table">
+              <thead>
+                <tr><th>时间</th><th>模型</th><th>账号</th><th>耗时</th><th>状态</th><th>内容摘要</th></tr>
+              </thead>
+              <tbody id="req-body">
+                <tr class="empty-row"><td colspan="6">
+                  <div class="empty"><span class="empty-ico"><svg viewBox="0 0 24 24"><path d="M3.5 12.5 6 5.6A1.5 1.5 0 0 1 7.4 4.6h9.2A1.5 1.5 0 0 1 18 5.6l2.5 6.9"/><path d="M3.5 12.5h4.2l1 2.2h6.6l1-2.2h4.2v4.2a2.2 2.2 0 0 1-2.2 2.2H5.7a2.2 2.2 0 0 1-2.2-2.2v-4.2Z"/></svg></span><p>还没有请求，去「接口」页看看怎么接入</p></div>
+                </td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ---------- 账号池 ---------- -->
+      <section class="view" id="view-accounts">
+        <div class="section-note">
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v5.5M12 7.8v.4"/></svg>
+          <p>Cookie 只保存在本机 <code>%LOCALAPPDATA%\GeminiProxy</code>，不会上传到任何服务器。多个账号会按轮询分摊请求。</p>
+        </div>
+        <div class="account-grid" id="account-grid"></div>
+        <div class="account-empty" id="account-empty">
+          <div class="empty-card">
+            <div class="empty-illu">
+              <svg viewBox="0 0 64 64"><circle cx="32" cy="32" r="26" stroke-dasharray="3 5"/><circle cx="32" cy="26" r="8"/><path d="M18 47c1.5-8 7-12 14-12s12.5 4 14 12"/></svg>
+            </div>
+            <h3>还没有添加账号</h3>
+            <p>登录 gemini.google.com 后，把 <code>__Secure-1PSID</code> 和 <code>__Secure-1PSIDTS</code> 两个 Cookie 填进来即可。</p>
+            <div class="empty-actions">
+              <button class="btn primary" id="btn-empty-add">手动添加</button>
+              <button class="btn ghost" id="btn-empty-import">从浏览器导入</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ---------- 接口 ---------- -->
+      <section class="view" id="view-endpoints">
+        <div class="endpoint-grid">
+          <div class="panel">
+            <div class="panel-head"><div><h2>OpenAI 兼容</h2><p>适用于 Cherry Studio、NextChat、LobeChat、Cline、各类 SDK</p></div></div>
+            <div class="kv-list">
+              <div class="kv"><span>Base URL</span><div class="kv-val"><code id="ep-openai-base">http://127.0.0.1:8765/v1</code><button class="icon-btn sm" id="ep-openai-copy"><svg viewBox="0 0 24 24"><rect x="9" y="9" width="11" height="11" rx="2.5"/><path d="M15 5.5A2.5 2.5 0 0 0 12.5 3H6.5A2.5 2.5 0 0 0 4 5.5v6A2.5 2.5 0 0 0 6.5 14"/></svg></button></div></div>
+              <div class="kv"><span>API Key</span><div class="kv-val"><code id="ep-key">未设置（任意值）</code></div></div>
+              <div class="kv"><span>接口</span><div class="kv-val"><code>POST /v1/chat/completions</code></div></div>
+              <div class="kv"><span>流式</span><div class="kv-val"><code>stream: true</code></div></div>
+            </div>
+          </div>
+          <div class="panel">
+            <div class="panel-head"><div><h2>Anthropic 兼容</h2><p>适用于 Claude Code、以及只认 /v1/messages 的客户端</p></div></div>
+            <div class="kv-list">
+              <div class="kv"><span>Base URL</span><div class="kv-val"><code id="ep-anthropic-base">http://127.0.0.1:8765</code><button class="icon-btn sm" id="ep-anthropic-copy"><svg viewBox="0 0 24 24"><rect x="9" y="9" width="11" height="11" rx="2.5"/><path d="M15 5.5A2.5 2.5 0 0 0 12.5 3H6.5A2.5 2.5 0 0 0 4 5.5v6A2.5 2.5 0 0 0 6.5 14"/></svg></button></div></div>
+              <div class="kv"><span>接口</span><div class="kv-val"><code>POST /v1/messages</code></div></div>
+              <div class="kv"><span>模型</span><div class="kv-val"><code id="ep-anthropic-model">gemini-pro</code></div></div>
+              <div class="kv"><span>流式</span><div class="kv-val"><code>stream: true</code></div></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head"><div><h2>可用模型</h2><p>模型名来自你账号在网页端的实际可用列表</p></div></div>
+          <div class="model-list" id="model-list"></div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head"><div><h2>接入示例</h2><p>复制即用</p></div>
+            <div class="tabs" id="code-tabs">
+              <button class="tab active" data-tab="curl">cURL</button>
+              <button class="tab" data-tab="python">Python</button>
+              <button class="tab" data-tab="node">Node</button>
+              <button class="tab" data-tab="env">环境变量</button>
+            </div>
+          </div>
+          <div class="code-box">
+            <button class="icon-btn sm code-copy" id="btn-copy-code"><svg viewBox="0 0 24 24"><rect x="9" y="9" width="11" height="11" rx="2.5"/><path d="M15 5.5A2.5 2.5 0 0 0 12.5 3H6.5A2.5 2.5 0 0 0 4 5.5v6A2.5 2.5 0 0 0 6.5 14"/></svg></button>
+            <pre><code id="code-block"></code></pre>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head"><div><h2>在线试跑</h2><p>直接走代理链路，验证账号是否正常</p></div></div>
+          <div class="playground">
+            <textarea id="pg-input" rows="3" placeholder="问点什么，比如：用一句话解释什么是反向代理"></textarea>
+            <div class="pg-bar">
+              <select id="pg-model" class="select"></select>
+              <label class="switch"><input type="checkbox" id="pg-thinking"><span></span>思考模式</label>
+              <button class="btn primary" id="pg-send">发送</button>
+            </div>
+            <div class="pg-out" id="pg-out"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ---------- 日志 ---------- -->
+      <section class="view" id="view-logs">
+        <div class="panel panel-fill">
+          <div class="panel-head">
+            <div><h2>运行日志</h2><p>每秒自动刷新</p></div>
+            <div class="log-actions">
+              <label class="switch"><input type="checkbox" id="log-autoscroll" checked><span></span>自动滚动</label>
+              <button class="btn tiny ghost" id="btn-clear-logs">清空</button>
+            </div>
+          </div>
+          <div class="log-view" id="log-view"></div>
+        </div>
+      </section>
+
+      <!-- ---------- 设置 ---------- -->
+      <section class="view" id="view-settings">
+        <div class="settings-grid">
+          <div class="settings-col">
+            <div class="panel">
+              <div class="panel-head"><div><h2>访问控制</h2><p>设置后客户端需要带上 Authorization: Bearer &lt;key&gt;</p></div></div>
+              <div class="form">
+                <label class="field">
+                  <span>API Key</span>
+                  <div class="field-row">
+                    <input type="password" id="set-key" placeholder="留空表示不鉴权" autocomplete="off" />
+                    <button class="btn ghost" id="btn-gen-key">随机生成</button>
+                  </div>
+                  <em id="set-key-hint">当前：未设置</em>
+                </label>
+              </div>
+            </div>
+
+            <div class="panel">
+              <div class="panel-head"><div><h2>网络</h2><p>访问 Google 需要代理时填写</p></div></div>
+              <div class="form">
+                <label class="field">
+                  <span>代理地址</span>
+                  <input type="text" id="set-proxy" placeholder="http://127.0.0.1:7890" />
+                  <em>支持 http:// 与 socks5://，留空则直连</em>
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <div class="settings-col">
+            <div class="panel">
+              <div class="panel-head"><div><h2>默认行为</h2><p>未在请求中指定时使用</p></div></div>
+              <div class="form">
+                <label class="field">
+                  <span>默认模型</span>
+                  <select id="set-model" class="select"></select>
+                </label>
+                <label class="field inline">
+                  <span>默认开启思考模式</span>
+                  <label class="switch"><input type="checkbox" id="set-thinking"><span></span></label>
+                </label>
+                <label class="field">
+                  <span>账号冷却时间（秒）</span>
+                  <input type="number" id="set-cooldown" min="10" max="3600" step="10" />
+                  <em>某个账号报错后，多久重新参与轮询</em>
+                </label>
+                <label class="field">
+                  <span>单次请求超时（秒）</span>
+                  <input type="number" id="set-timeout" min="30" max="900" step="10" />
+                </label>
+              </div>
+            </div>
+
+            <div class="panel">
+              <div class="panel-head"><div><h2>外观</h2><p>深色模式会跟随系统自动切换</p></div></div>
+              <div class="form">
+                <label class="field">
+                  <span>主题</span>
+                  <select id="set-theme" class="select">
+                    <option value="auto">跟随系统</option>
+                    <option value="light">浅色</option>
+                    <option value="dark">深色</option>
+                  </select>
+                </label>
+              </div>
+            </div>
+
+            <div class="panel">
+              <div class="panel-head"><div><h2>关于</h2><p>本地运行的私有服务</p></div></div>
+              <div class="about-list">
+                <div class="about-row"><span>版本</span><b>1.0.0</b></div>
+                <div class="about-row"><span>数据目录</span><code id="about-dir">—</code></div>
+                <div class="about-row"><span>监听地址</span><code id="about-host">—</code></div>
+                <div class="about-row"><span>接口文档</span><a href="#" id="about-docs">/docs</a></div>
+              </div>
+              <div class="about-tip">额度来自你 Google 账号在 gemini.google.com 的网页端订阅，请遵守 Google 服务条款，仅限个人使用。</div>
+            </div>
+          </div>
+        </div>
+        <div class="settings-foot">
+          <button class="btn primary lg" id="btn-save-settings">保存设置</button>
+        </div>
+      </section>
+
+    </div>
+  </main>
+</div>
+
+<div id="modal-root"></div>
+<div id="toast-root"></div>
+<script src="/static/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,7 @@
+{
+  "nameEn": "Gemini web",
+  "descriptionEn": "Turns your gemini.google.com subscription quota into a model service: the plugin runs a local reverse proxy (replays the web app's API, rotates across accounts, refreshes cookies) and adds it to the model lists of the agents you pick (Claude, dimensio). Personal use only.",
+  "notes": {
+    "1.2.0": "首个市场版本：插件自带 Gemini 网页端反代（无需另装程序），由 bridge 拉起并看护；控制面板里管理多个 Google 账号（Cookie 自动续期、出错轮换）；按勾选给 Claude / dimensio 提供模型服务，两档推理强度；访问 Google 默认沿用 bridge 的出站代理。非官方接口、仅限个人自用，请遵守 Google 服务条款。需要 bridge 7.05 以上，以及 Python 3.10+。"
+  }
+}

@@ -1,0 +1,81 @@
+{
+  "name": "Gemini web",
+  "description": "Turns your gemini.google.com subscription quota into a model service: the plugin runs a local reverse proxy (replays the web app's API, rotates across accounts, refreshes cookies) and adds it to the model lists of the agents you pick (Claude, dimensio). Personal use only.",
+  "ui": {
+    "panel": {
+      "title": "Gemini web"
+    }
+  },
+  "config": {
+    "agents": {
+      "label": "Available to",
+      "desc": "Checked agents get a “Gemini web” service in their model list. Unchecked ones don’t (the proxy keeps running).",
+      "section": "Provide to"
+    },
+    "members": {
+      "label": "Members can use it too",
+      "desc": "On a multi-user server, members’ Claude / dimensio can pick these models as well (on your Google account’s quota).",
+      "section": "Provide to"
+    },
+    "name": {
+      "label": "Name in the model list",
+      "section": "Provide to"
+    },
+    "models": {
+      "label": "Models to list",
+      "desc": "None checked = list everything the accounts can use. The list comes from the accounts (test an account to refresh it).",
+      "section": "Provide to"
+    },
+    "defaultModel": {
+      "label": "Default model",
+      "desc": "Empty = the first one. gemini-argon (4 Argon) or gemini-pro recommended.",
+      "section": "Provide to"
+    },
+    "deepThinking": {
+      "label": "Deep thinking by default",
+      "desc": "Makes the “Deep thinking” effort the default (slower, stronger). You can still switch per conversation.",
+      "section": "Provide to"
+    },
+    "mode": {
+      "label": "Proxy",
+      "desc": "“Started by bridge” = the plugin starts the proxy and restarts it if it crashes (recommended). “Already running” = connect to a Gemini Proxy you run separately.",
+      "section": "How it runs",
+      "enum": {
+        "managed": "Started by bridge",
+        "external": "Already running"
+      }
+    },
+    "python": {
+      "label": "Python",
+      "desc": "Command or path for Python 3.10+ (python, py -3, C:\\Python312\\python.exe). On first start it creates a virtual environment in the plugin’s data folder and installs dependencies (about a minute, needs PyPI); not used after that.",
+      "section": "How it runs"
+    },
+    "port": {
+      "label": "Port",
+      "desc": "Listens on 127.0.0.1 only. Pick another if something else is using it.",
+      "section": "How it runs"
+    },
+    "externalUrl": {
+      "label": "Proxy address",
+      "section": "How it runs"
+    },
+    "apiKey": {
+      "label": "Proxy API key",
+      "desc": "Only if your proxy has an API key set. When bridge starts the proxy, the plugin generates one itself.",
+      "section": "How it runs"
+    },
+    "proxy": {
+      "label": "Proxy for reaching Google",
+      "desc": "Needed in mainland China, e.g. http://127.0.0.1:7890 or socks5://127.0.0.1:7890. Empty = use bridge’s own outbound proxy (follows it when it changes); direct if bridge is direct. pip uses it too.",
+      "section": "Network"
+    },
+    "cooldownSec": {
+      "label": "Cooldown after an account error (s)",
+      "section": "Network"
+    },
+    "requestTimeout": {
+      "label": "Request timeout (s)",
+      "section": "Network"
+    }
+  }
+}

@@ -8,14 +8,15 @@
 //   ctx.sandbox      每个群 / 私聊一个隔离工作区（无命令行、碰不到主机文件），不需要 bridge 账号
 //   ctx.chat         排队（同群串行、不同群并行）、会话续写、用量记账与每日上限、结果码、单轮工具（send_file）
 //   ctx.webhook      收上报            ctx.process  托管 NapCat（健康检查 = 看门狗）       ctx.notify  掉线提醒
-//   ctx.schedule     每天清旧图片      ctx.share    「/chat」专属对话页                    ctx.onConfig / setConfig  设置热更新、群里暂停
+//   ctx.schedule     每天清旧图片、每 5 分钟查 GitHub 新版本（发版公告）
+//   ctx.share    「/chat」专属对话页      ctx.onConfig / setConfig  设置热更新、群里暂停
 //   ctx.status / action / configOptions / ui.panel   设置页与控制台
 
 import path from 'node:path';
 import { appendFileSync, mkdirSync, readFileSync, existsSync, readdirSync, statSync, rmSync } from 'node:fs';
 import { makeOneBot, readSegments, renderForLog, sniffExt } from './lib/onebot.mjs';
-import { importLegacy } from './lib/legacy.mjs';
 import { ensureNapcatNetwork, otherReporters } from './lib/napcat-config.mjs';
+import { parseRepoLines, fetchReleases, pickNew, fallbackSummary, summaryMessage, composeNotice, SUMMARY_PROMPT } from './lib/releases.mjs';
 import crypto from 'node:crypto';
 
 const BASE_GUIDE = '你是一个 QQ 机器人，在 QQ 里回答群友（或好友私聊）的问题。回答简洁、口语化，适合在聊天软件里读。'
@@ -29,7 +30,9 @@ const LOG_GUIDE = '【群聊记录·按需查阅】这个群里所有人的全�
   + '「Claude(你)」是你自己之前的回复。「[图片:图片/日期/xxx.jpg]」是群友发的图，路径相对「群聊记录」目录，要看就用 Read 打开；「[动画表情:…]」同理。\n'
   + '什么时候去读：消息里有指代（「上面那个」「他说的对吗」「刚才那张图」）、问群里在聊什么 / 谁说过什么、或者需要前因后果时，用 Read 读今天文件的末尾几十行，'
   + '更早的用 Grep 搜；问题本身完整就不用读。不要整段复述，也不要修改这些文件。';
-const RESET_WORDS = /^(重置|新对话|清空对话|\/?reset|\/?new)$/i;
+const REPORT_GUIDE = '【上报】确认是软件的真 bug、或者必须机器人主人亲自处理的事（数据丢失、服务挂了、安全问题、提问人明确要求转达），调用 report_issue 工具上报，'
+  + '写清现象、复现步骤和你的判断，然后告诉提问人「已经转给维护者了」。用法问题、配置问题、闲聊不要上报；同一件事不要重复报。';
+const RESET_WORDS =/^(重置|新对话|清空对话|\/?reset|\/?new)$/i;
 const PAUSE_WORDS = /^(暂停|闭嘴|\/?pause)$/i;
 const RESUME_WORDS = /^(继续|恢复|\/?resume)$/i;
 const ROLE_TAG = { owner: '[群主]', admin: '[管理]' };
@@ -63,8 +66,15 @@ export function apply(ctx, config) {
   const stats = ctx.store.get('stats', { day: '', replies: 0 });
 
   // 每个聊天一个沙箱：g<群号> / p<QQ号>
+  // 本群资料目录（只读）：设置里一行一个绝对路径，「不开放的部分」一行一个相对路径（对每个目录都生效）
+  const lines = (s) => String(s || '').split(/[\r\n]+/).map((x) => x.trim()).filter(Boolean);
+  const readDirsOf = (cid) => {
+    const g = cid.startsWith('g') ? cfg.groups[cid.slice(1)] || {} : {};
+    const hide = lines(g.docsHide);
+    return lines(g.docs).map((dir) => ({ dir, hide }));
+  };
   const boxes = new Map();
-  const ws = (cid) => { let b = boxes.get(cid); if (!b) { b = ctx.sandbox(cid); boxes.set(cid, b); } return b; };
+  const ws = (cid) => { let b = boxes.get(cid); if (!b) { b = ctx.sandbox(cid, { readDirs: readDirsOf(cid) }); boxes.set(cid, b); } return b; };
 
   // ── 连接 ──
   async function probe() {
@@ -262,10 +272,34 @@ export function apply(ctx, config) {
     const head = q.isGroup ? `【${q.nick}（QQ ${q.qq}）${ROLE_TAG[q.role] || ''}】` : `【${q.nick}】`;
     const gs = q.isGroup ? cfg.groups[q.gid] || {} : {};
     const prompt = [BASE_GUIDE, q.isGroup && GROUP_GUIDE, cfg.sendFiles && FILE_GUIDE, logOn(q.cid) && LOG_GUIDE,
-      cfg.extraPrompt && '【主人的额外要求】' + cfg.extraPrompt].filter(Boolean).join('\n\n');
+      cfg.reportIssues && REPORT_GUIDE,
+      cfg.extraPrompt && '【主人的额外要求】' + cfg.extraPrompt,
+      gs.prompt && '【本群的设定（主人写的，优先遵守）】' + gs.prompt].filter(Boolean).join('\n\n');
     const sent = new Set();
+    const tools = [];
+    // 单轮工具：Claude 判断是真 bug / 要主人处理的事时上报（推送通知 + 控制台「上报」）
+    if (cfg.reportIssues) tools.push({
+      name: 'report_issue',
+      description: '向机器人的主人上报一个问题：确认是软件的真 bug、或必须主人亲自处理的事（不是用法问题、不是群友情绪）时用。写清现象、复现步骤、提问人说的原话要点、你的判断。',
+      params: {
+        title: { type: 'string', required: true, max: 80, desc: '一句话标题' },
+        details: { type: 'string', required: true, max: 3000, desc: '现象、复现步骤、相关原话、你的判断' },
+        severity: { type: 'string', enum: ['low', 'normal', 'high'], default: 'normal', desc: '严重程度' },
+      },
+      handler: async ({ title, details, severity }) => {
+        const day = dayOf();
+        const all = ctx.store.get('reports', []);
+        if (all.filter((r) => r.cid === q.cid && dayOf(new Date(r.t)) === day).length >= 10) return '今天这个群上报得够多了，没再发。可以在回复里告诉提问人「已记下」。';
+        const rec = { id: Date.now().toString(36), t: Date.now(), cid: q.cid, chat: q.chatName, from: `${q.nick}(${q.qq})`, title: String(title).slice(0, 80), details: String(details).slice(0, 3000), severity, status: 'open' };
+        all.unshift(rec);
+        ctx.store.set('reports', all.slice(0, 300));
+        ctx.notify({ title: `QQ 群上报：${rec.title}`, body: `${q.chatName} · ${rec.from}`, level: severity === 'high' ? 'error' : 'warn' });
+        ctx.bus.toPage('report', { id: rec.id });
+        return '已上报给主人。';
+      },
+    });
     // 单轮工具：Claude 主动把文件 / 图片发进这个聊天
-    const tools = cfg.sendFiles ? [{
+    if (cfg.sendFiles) tools.push({
       name: 'send_file',
       description: '把工作目录里的一个文件发给当前 QQ 聊天：图片（png/jpg/gif/webp）发成图片消息，其它文件上传成群文件 / 私聊文件。路径相对工作目录。',
       params: { path: { type: 'string', required: true, desc: '相对工作目录的文件路径' } },
@@ -276,7 +310,7 @@ export function apply(ctx, config) {
         sent.add(path.resolve(abs));
         return '已发出：' + path.basename(abs);
       },
-    }] : [];
+    });
     const turn = ctx.chat.run({
       as: ws(q.cid),
       message: quote + head + (q.text || (attachments.length ? '（请看图）' : '（见引用）')),
@@ -354,7 +388,9 @@ export function apply(ctx, config) {
     const script = path.join(dir, cfg.napcatScript || 'napcat.bat');
     let spec = null;
     // 参数每次启动现算：「换号 / 重新扫码」时这一次不带 -q；扫码登上后记下新号，下次重启就快速登录它（都不用整个插件重启）
-    if (dir && existsSync(node) && existsSync(js)) spec = { command: node, args: () => ['./index.js', ...(cfg.napcatQQ && !forceScan ? ['-q', cfg.napcatQQ] : [])] };
+    // 老核心（没有 process.args 能力）不认函数参数、会不带参数拉起 node 让它秒退——那就退回启动时算好的数组（换号要整个插件重启才生效）
+    const napArgs = () => ['./index.js', ...(cfg.napcatQQ && !forceScan ? ['-q', cfg.napcatQQ] : [])];
+    if (dir && existsSync(node) && existsSync(js)) spec = { command: node, args: ctx.has?.('process.args') ? napArgs : napArgs() };
     else if (dir && existsSync(script)) spec = { command: script, args: [] };
     if (!spec) lastErr = !dir ? '还没填 NapCat 目录：控制台「设置」里填上 NapCat.Shell 解压的位置' : '找不到 NapCat（目录里没有 node.exe + index.js，也没有 ' + (cfg.napcatScript || 'napcat.bat') + '）：' + dir;
     else {
@@ -429,12 +465,124 @@ export function apply(ctx, config) {
   ctx.schedule('clean-images', { daily: '04:20', label: '清理群聊旧图片' }, cleanImages);
   ctx.action({ id: 'clean-images', label: '清理旧图片', desc: '现在就按「群聊图片保留几天」清一遍（每天凌晨也会自动清）', handler: async () => cleanImages() });
 
+  // ── 发版公告：盯 GitHub 仓库的 Release，出了新正式版就往选定的群发「更新提示 + 更新内容简介」──
+  // store：releases = { 仓库(小写): { seen: [tag], etag, checked } }；releaseQueue = 还没发出去的公告（QQ 掉线 / 暂停时留着，下次检查再发，一天后放弃）
+  let relBox = null;
+  const relSandbox = () => (relBox ||= ctx.sandbox('releases', { web: false }));
+  async function summarize(name, repo, rel) {
+    if (cfg.releaseSummary === 'notes') return fallbackSummary(rel.body);
+    const as = relSandbox();
+    const session = `${repo}@${rel.tag}`;
+    try {
+      ctx.chat.reset(as, session);   // 每次都是一段新对话（预览过的再发也不会接着上次聊）
+      const out = await ctx.chat.run({
+        as, session, message: summaryMessage(name, rel), prompt: SUMMARY_PROMPT, format: 'plain',
+        model: cfg.model || undefined, effort: 'low', label: '发版公告 · ' + name,
+      }).result;
+      if (out.ok && String(out.text || '').trim()) return String(out.text).trim().slice(0, 800);
+      ctx.warn(`发版公告：Claude 没写出简介（${out.code}），改用发布说明开头`);
+    } catch (e) { ctx.warn('发版公告：Claude 没写出简介，改用发布说明开头：', e?.message || e); }
+    finally { ctx.chat.reset(as, session); }
+    return fallbackSummary(rel.body);
+  }
+  // 串起来跑：定时检查和「补发」同时触发时不会把同一条发两遍
+  let flushing = Promise.resolve(0);
+  const flushNotices = () => (flushing = flushing.then(doFlush, doFlush));
+  async function doFlush() {
+    const queue = ctx.store.get('releaseQueue', []);
+    if (!queue.length || cfg.paused) return 0;
+    let sent = 0;
+    const left = [];
+    for (const item of queue) {
+      const remain = [];
+      for (const gid of item.gids) {
+        const cid = 'g' + gid;
+        try {
+          await bot.sendText(cid, item.text, { maxSeg: cfg.maxSeg });
+          sent++;
+          logLine(cid, { chat: chatName(cid), who: '发版公告', bot: true, text: item.text });
+          noteBotReply(cid, item.text);   // 记进群聊记录：群友问「更新了啥」时 Claude 翻得到
+        } catch (e) { remain.push(gid); item.err = String(e?.message || e); }
+      }
+      if (!remain.length) continue;
+      if (Date.now() - item.t > 86_400_000) ctx.warn(`发版公告「${item.title}」一天都没发出去，不再重试：群 ${remain.join('、')}（${item.err}）`);
+      else left.push({ ...item, gids: remain });
+    }
+    ctx.store.set('releaseQueue', left);
+    return sent;
+  }
+  async function enqueueNotice(name, repo, rel) {
+    const gids = (cfg.releaseGroups || []).filter(Boolean);
+    const text = composeNotice(name, rel, await summarize(name, repo, rel));
+    if (gids.length) ctx.store.set('releaseQueue', [...ctx.store.get('releaseQueue', []), { title: `${name} ${rel.tag}`, text, gids, t: Date.now() }]);
+    ctx.log(`发版公告：${name} ${rel.tag}` + (gids.length ? ` → ${gids.length} 个群` : '（没选群，没发）'));
+    return text;
+  }
+  let checking = null;
+  function checkReleases() {
+    return (checking ||= (async () => {
+      const repos = parseRepoLines(cfg.releaseRepos);
+      if (!repos.length) return '没设要盯的仓库';
+      const st = ctx.store.get('releases', {});
+      const notes = [];
+      for (const { repo, name } of repos) {
+        const key = repo.toLowerCase();
+        const cur = st[key];
+        try {
+          const r = await fetchReleases(repo, cur?.etag);
+          if (r.notModified) { notes.push(`${name}：没有新版本`); continue; }
+          const { fresh, seen } = pickNew(r.list, cur?.seen || [], { prerelease: cfg.releasePrerelease, first: !cur });
+          st[key] = { seen, etag: r.etag, checked: Date.now() };
+          ctx.store.set('releases', st);   // 先记下已处理，免得 Claude 写简介时下一次检查又发一遍
+          if (!cur) { notes.push(`${name}：开始关注（现有 ${seen.length} 个版本不发公告）`); continue; }
+          for (const rel of fresh) await enqueueNotice(name, repo, rel);
+          notes.push(`${name}：` + (fresh.length ? '新版本 ' + fresh.map((x) => x.tag).join('、') : '没有新版本'));
+        } catch (e) { notes.push(`${name}：查不到（${e?.message || e}）`); }
+      }
+      const sent = await flushNotices();
+      return notes.join('；') + (sent ? `；发出 ${sent} 条公告` : '') + (cfg.paused && ctx.store.get('releaseQueue', []).length ? '；机器人暂停中，公告等恢复后再发' : '');
+    })().finally(() => { checking = null; }));
+  }
+  // 每个仓库最新的正式版（「预览」和「补发」用）
+  async function latestReleases() {
+    const out = [];
+    for (const { repo, name } of parseRepoLines(cfg.releaseRepos)) {
+      const { list } = await fetchReleases(repo);
+      const rel = list.filter((r) => cfg.releasePrerelease || !r.prerelease).sort((a, b) => b.at - a.at)[0];
+      if (rel) out.push({ repo, name, rel });
+    }
+    if (!out.length) throw new Error('先在设置「发版公告」里填要关注的 GitHub 仓库');
+    return out;
+  }
+  ctx.schedule('releases', { every: '5m', label: '检查 GitHub 新版本（发版公告）' }, checkReleases);
+  ctx.action({ id: 'check-releases', label: '检查新版本', desc: '现在就查一遍「发版公告」里的仓库（平时每 5 分钟自动查）', handler: async () => checkReleases() });
+  ctx.action({
+    id: 'preview-release', label: '预览发版公告', desc: '按各仓库最新的正式版拼一条公告给你看，不发进群（会用一轮 Claude 写简介）',
+    handler: async () => {
+      const texts = [];
+      for (const { repo, name, rel } of await latestReleases()) texts.push(composeNotice(name, rel, await summarize(name, repo, rel)));
+      return texts.join('\n\n————\n\n');
+    },
+  });
+  ctx.action({
+    id: 'announce-latest', label: '补发最新版公告', desc: '把各仓库最新正式版的公告发到「发版公告」选的群（漏发、刚开这个功能时用）',
+    confirm: '会往选定的群各发一条更新公告。',
+    handler: async () => {
+      if (!(cfg.releaseGroups || []).length) throw new Error('先在设置「发版公告」里选要发的群');
+      const items = await latestReleases();
+      for (const { repo, name, rel } of items) await enqueueNotice(name, repo, rel);
+      const sent = await flushNotices();
+      return `发出 ${sent} 条公告` + (ctx.store.get('releaseQueue', []).length ? '，有的没发出去（QQ 不在线或暂停中），下次检查时重试' : '');
+    },
+  });
+
   // 设置热更新：连接相关的改了才整个重启
   ctx.onConfig((next, prev) => {
     if (RESTART_KEYS.some((k) => next[k] !== prev[k])) return false;
     // 由 bridge 拉起时，地址 / token 要重新写进 NapCat 配置并重启它
     if (next.mode === 'managed' && (next.apiUrl !== prev.apiUrl || next.apiToken !== prev.apiToken)) return false;
     cfg = next;
+    boxes.clear();   // 资料目录可能改了：沙箱句柄按新设置重建（下一个问题生效）
     limits();
     if (next.apiUrl !== prev.apiUrl || next.apiToken !== prev.apiToken) probe().then(refreshGroups).catch(() => {});
     ctx.status.refresh();
@@ -468,23 +616,11 @@ export function apply(ctx, config) {
       return '已重启，二维码马上出现在控制台里';
     },
   });
-  ctx.action({
-    id: 'import-legacy', label: '从旧版导入', desc: '把旧版 qq-bot 的设置和各群的群聊记录搬过来（先在下面填旧版目录）',
-    confirm: '会用旧版的设置覆盖这里对应的项（白名单、前缀、按群设置……），并把群聊记录拷进各群的沙箱（已有的文件不覆盖）。',
-    handler: async () => {
-      if (!cfg.legacyDir) throw new Error('先在「从旧版导入」里填旧版 qq-bot 的目录');
-      const r = await importLegacy(ctx, cfg.legacyDir);
-      const chats = ctx.store.get('chats', {});
-      for (const [cid, name] of Object.entries(r.names)) chats[cid] = { count: 0, last: 0, ...(chats[cid] || {}), name };
-      ctx.store.set('chats', chats);
-      await ctx.setConfig(r.config);
-      return `导入了 ${Object.keys(r.config).length} 项设置` + (r.copied.length ? `，${r.copied.length} 个群的群聊记录` : '，没找到旧版的群聊记录');
-    },
-  });
 
   const chatOptions = async () => (await refreshGroups()).map((g) => ({ value: String(g.group_id), label: g.group_name || String(g.group_id), desc: g.member_count ? g.member_count + ' 人' : '' }));
   ctx.configOptions('allowGroups', chatOptions);
   ctx.configOptions('groups', chatOptions);
+  ctx.configOptions('releaseGroups', chatOptions);
 
   // ── 控制台（web/index.html）用的接口：只给服务器主机 ──
   const api = (m, p, fn) => ctx.route(m, `/api/plugin/${id}/${p}`, async (req, res, url) => {
@@ -506,6 +642,7 @@ export function apply(ctx, config) {
         members: cid.startsWith('g') ? groupCache.find((x) => 'g' + x.group_id === cid)?.member_count || null : null,
         allowed: cid.startsWith('g') ? allowed(key) : cfg.privateReply,
         enabled: g.enabled !== false, model: g.model || '', effort: g.effort || '', forward: g.forward || '',
+        prompt: g.prompt || '', docs: g.docs || '', docsHide: g.docsHide || '',
       };
     }).sort((a, b) => (b.allowed - a.allowed) || ((b.last || 0) - (a.last || 0)) || (b.members || 0) - (a.members || 0));
     ctx.http.json(res, 200, { chats, online, qqOnline, needScan, waitingScan, qr: waitingScan && existsSync(qrFile()), self, paused: cfg.paused, hookUrl: hookUrl(), apiUrl: cfg.apiUrl, lastErr, usage: ctx.chat.usage(), dailyTurns: cfg.dailyTurns });
@@ -539,6 +676,16 @@ export function apply(ctx, config) {
   });
   api('GET', 'snaps', async (req, res) => ctx.http.json(res, 200, { snaps: await ctx.share.chats() }));
   api('GET', 'snaplog', async (req, res, url) => ctx.http.json(res, 200, await ctx.share.chatLog(String(url.searchParams.get('token') || ''))));
+  api('GET', 'reports', (req, res) => ctx.http.json(res, 200, { reports: ctx.store.get('reports', []) }));
+  api('POST', 'report-done', async (req, res) => {
+    const b = await ctx.http.body(req);
+    const all = ctx.store.get('reports', []);
+    const r = all.find((x) => x.id === String(b.id || ''));
+    if (!r) return ctx.http.json(res, 404, { error: '没有这条' });
+    if (b.delete) all.splice(all.indexOf(r), 1); else r.status = b.status === 'open' ? 'open' : 'done';
+    ctx.store.set('reports', all);
+    ctx.http.json(res, 200, { ok: true });
+  });
   api('POST', 'snap-forget', async (req, res) => { const b = await ctx.http.body(req); ctx.http.json(res, 200, { ok: ctx.share.forgetChat(String(b.token || '')) }); });
 
   probe().then(refreshGroups).catch(() => {});

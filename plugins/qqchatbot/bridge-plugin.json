@@ -1,13 +1,13 @@
 {
   "id": "qqchatbot",
   "name": "QQ 机器人",
-  "version": "2.1.0",
+  "version": "2.4.0",
   "description": "把 QQ 群和私聊接到 Claude：群友 @ 机器人或用前缀提问，回答发回 QQ。每个群一个独立沙箱（无命令行、碰不到主机文件），不需要建账号或开多用户。连接 NapCat 等任何 OneBot 11 协议端。",
   "author": "claude-bridge",
   "category": "third-party",
   "entry": "index.mjs",
   "engines": {
-    "bridge": ">=7.02",
+    "bridge": ">=7.03",
     "pluginApi": 3
   },
   "permissions": [
@@ -268,6 +268,13 @@
       "label": "「/chat」发专属对话页",
       "desc": "群友 @ 机器人发「/chat」时，给他一个网页链接单独和 Claude 聊（隔离工作区，闲置后自动销毁；要开着「快照对话」功能和公网地址）。"
     },
+    "reportIssues": {
+      "type": "boolean",
+      "default": true,
+      "section": "怎么回答",
+      "label": "允许 Claude 上报问题",
+      "desc": "Claude 判断是真 bug 或需要你处理的事时，用 report_issue 工具上报：推送通知给你，控制台「上报」里能看。每个群每天最多 10 条。"
+    },
     "extraPrompt": {
       "type": "string",
       "widget": "textarea",
@@ -347,14 +354,74 @@
           ],
           "default": "",
           "label": "本群合并转发"
+        },
+        "prompt": {
+          "type": "string",
+          "widget": "textarea",
+          "max": 4000,
+          "label": "本群提示词",
+          "desc": "这个群专用的人设、背景和要求，例如「你是 bridge 的客服机器人，回答服主们使用中遇到的问题；遇到真 bug 用 report_issue 上报」。叠加在全局「额外的人设」之后。"
+        },
+        "docs": {
+          "type": "string",
+          "widget": "textarea",
+          "max": 2000,
+          "label": "本群资料目录（只读）",
+          "desc": "服务器上的目录，一行一个（绝对路径）。Claude 能查阅里面的文件回答问题，但改不了；像密钥的文件（config.json、*.pem、token…）一律不给读。"
+        },
+        "docsHide": {
+          "type": "string",
+          "widget": "textarea",
+          "max": 2000,
+          "label": "资料目录里不开放的部分",
+          "desc": "相对上面目录的路径，一行一个，例如 memory、qq、用户反馈。这些位置不给读，含它们的整目录也不能一把搜。"
         }
       }
     },
-    "legacyDir": {
+    "releaseRepos": {
       "type": "string",
-      "section": "从旧版导入",
-      "label": "旧版 qq-bot 目录",
-      "desc": "以前单独跑的 qq-bot（管理台在 5700 端口）所在目录，填好后点上面的「从旧版导入」：设置和各群的群聊记录（含图片）搬过来。"
+      "widget": "textarea",
+      "max": 2000,
+      "section": "发版公告",
+      "label": "关注的 GitHub 仓库",
+      "desc": "一行一个：「owner/repo 显示名」，显示名可省。这些仓库发布新的正式版时，在下面选的群里发一条更新提示和更新内容简介（每 5 分钟查一次）。刚加进来的仓库，已有的版本不发。"
+    },
+    "releaseGroups": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "options": "plugin",
+        "pattern": "^\\d+$"
+      },
+      "max": 50,
+      "section": "发版公告",
+      "label": "发到哪些群",
+      "desc": "不选 = 不发。"
+    },
+    "releaseSummary": {
+      "type": "string",
+      "enum": [
+        {
+          "value": "claude",
+          "label": "Claude 归纳"
+        },
+        {
+          "value": "notes",
+          "label": "说明原文开头"
+        }
+      ],
+      "default": "claude",
+      "widget": "segmented",
+      "section": "发版公告",
+      "label": "更新内容简介",
+      "desc": "「Claude 归纳」= 让 Claude 把发布说明提炼成 3～5 条要点（每个版本用一轮额度）；没写成时自动退回原文开头。"
+    },
+    "releasePrerelease": {
+      "type": "boolean",
+      "default": false,
+      "section": "发版公告",
+      "label": "预发布版也发",
+      "desc": "默认只发正式版（GitHub 上没勾 Pre-release 的）。"
     }
   },
   "ui": {

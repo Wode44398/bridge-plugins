@@ -49,7 +49,7 @@ export function ensureNapcatNetwork({ dir, qq, port, token, hookUrl, hookToken }
   return changed;
 }
 
-// 当前配置里有没有别的上报地址还开着（比如旧版机器人的 5700）：两边同时收会回答两遍
+// 当前配置里有没有别的上报地址还开着：两边同时收会回答两遍
 export function otherReporters({ dir, qq, hookUrl }) {
   const f = path.join(dir, 'napcat', 'config', qq ? `onebot11_${qq}.json` : 'onebot11.json');
   const j = existsSync(f) ? read(f) : null;

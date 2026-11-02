@@ -68,6 +68,7 @@
     <div class="bp-seg tabs" id="sideTabs" role="tablist">
       <button data-v="chats" class="on">群和私聊</button>
       <button data-v="snaps">专属对话页</button>
+      <button data-v="reports">上报</button>
       <button data-v="settings">设置</button>
     </div>
     <div class="bp-group" style="margin: 0 10px 14px" id="list"><div class="bp-empty">还没有聊天</div></div>
@@ -175,6 +176,42 @@
       </div>`).join('') : '<div class="bp-empty">还没人要过专属对话页。群友 @ 机器人发「/chat」就会有。</div>';
     bindRows((el) => open(el.dataset.cid));
   }
+  // ── 上报：Claude 用 report_issue 报上来的问题 ──
+  let reports = [];
+  async function loadReports() {
+    const r = await bridge.json('reports');
+    reports = r.reports || [];
+    const sev = { high: '紧急', normal: '', low: '小问题' };
+    $('list').innerHTML = reports.length ? reports.map((x) => `
+      <div class="bp-row bp-click ${x.status === 'done' ? 'off' : ''}" role="button" tabindex="0" data-cid="rep:${esc(x.id)}" ${cur === 'rep:' + x.id ? 'style="background:var(--bp-hover)"' : ''}>
+        <div class="bp-row-main"><div class="bp-row-title"><span class="dot ${x.status === 'done' ? '' : 'on'}"></span>${sev[x.severity] ? '[' + sev[x.severity] + '] ' : ''}${esc(x.title)}</div>
+        <div class="bp-row-desc">${esc(x.chat)} · ${esc(x.from)} · ${when(x.t)}${x.status === 'done' ? ' · 已处理' : ''}</div></div>
+      </div>`).join('') : '<div class="bp-empty">还没有上报。群里有人遇到真 bug 时，Claude 会用 report_issue 报到这里，同时推送通知给你。</div>';
+    bindRows((el) => openReport(el.dataset.cid.slice(4)));
+  }
+  function openReport(id) {
+    const x = reports.find((r) => r.id === id);
+    if (!x) return;
+    cur = 'rep:' + id;
+    $('wrap').classList.add('open');
+    $('title').textContent = x.title;
+    show('report');
+    $('msgs').innerHTML = `<div class="bp-section"><div class="bp-group">
+      <div class="bp-row"><div class="bp-row-main"><div class="bp-row-title">${esc(x.chat)} · ${esc(x.from)}</div><div class="bp-row-desc">${new Date(x.t).toLocaleString()}</div></div></div>
+      <div class="bp-row"><div class="bp-row-main" style="white-space:pre-wrap">${esc(x.details)}</div></div>
+      <div class="bp-row"><div class="bp-row-main"></div>
+        <button class="bp-btn" id="rDel" type="button">删除</button>
+        <button class="bp-btn bp-btn-primary" id="rDone" type="button">${x.status === 'done' ? '标成未处理' : '标成已处理'}</button></div>
+    </div></div>`;
+    $('rDone').onclick = async () => { await bridge.json('report-done', { id, status: x.status === 'done' ? 'open' : 'done' }).catch(err); await loadReports(); openReport(id); };
+    $('rDel').onclick = async () => {
+      if (!(await bridge.confirm({ title: '删除这条上报？', danger: true, yes: '删除' }))) return;
+      await bridge.json('report-done', { id, delete: true }).catch(err);
+      $('back').onclick(); loadReports();
+    };
+    loadReports();
+  }
+
   function bindRows(fn) {
     for (const el of $('list').querySelectorAll('[data-cid]')) {
       el.onclick = () => fn(el);
@@ -254,7 +291,18 @@
         <div class="bp-row bp-row-stack"><div class="bp-row-main"><div class="bp-row-title">本群思考强度</div></div>${sel('gEffort', optEfforts, c.effort, '跟随全局')}</div>
         <div class="bp-row bp-row-stack"><div class="bp-row-main"><div class="bp-row-title">本群合并转发</div></div>
           <div class="bp-seg" id="gFw">${fw.map(([v, l]) => `<button type="button" data-v="${v}" class="${(c.forward || '') === v ? 'on' : ''}">${l}</button>`).join('')}</div></div>
+        <div class="bp-row bp-row-stack"><div class="bp-row-main"><div class="bp-row-title">本群提示词</div>
+          <div class="bp-row-desc">这个群专用的人设、背景和要求。例：你是 bridge 的客服机器人，回答服主们使用中遇到的问题；遇到真 bug 用 report_issue 上报给我。</div></div>
+          <textarea class="bp-textarea" id="gPrompt" rows="4" maxlength="4000">${esc(c.prompt)}</textarea></div>
+        <div class="bp-row bp-row-stack"><div class="bp-row-main"><div class="bp-row-title">本群资料目录（只读）</div>
+          <div class="bp-row-desc">服务器上的目录，一行一个绝对路径。Claude 能查阅、不能改；像密钥的文件一律不给读。<b>群里谁都能让 Claude 读这里的东西</b>，别放私密内容。</div></div>
+          <textarea class="bp-textarea" id="gDocs" rows="2" placeholder="例：C:\\Users\\me\\bridge\\docs">${esc(c.docs)}</textarea></div>
+        <div class="bp-row bp-row-stack"><div class="bp-row-main"><div class="bp-row-title">资料目录里不开放的部分</div>
+          <div class="bp-row-desc">相对上面目录的路径，一行一个（例：memory、用户反馈）。</div></div>
+          <textarea class="bp-textarea" id="gHide" rows="2">${esc(c.docsHide)}</textarea></div>
+        <div class="bp-row"><div class="bp-row-main"></div><button class="bp-btn bp-btn-primary" id="gSaveText" type="button">保存提示词和资料目录</button></div>
       </div></div>`;
+    $('gSaveText').onclick = () => saveGroup(gid, { prompt: $('gPrompt').value.trim(), docs: $('gDocs').value.trim(), docsHide: $('gHide').value.trim() });
     $('gOn').onchange = () => saveGroup(gid, { enabled: $('gOn').checked }, $('gOn').checked);
     $('gModel').onchange = () => saveGroup(gid, { model: $('gModel').value });
     $('gEffort').onchange = () => saveGroup(gid, { effort: $('gEffort').value });
@@ -296,6 +344,7 @@
     side = v; seg($('sideTabs'), v);
     if (v === 'chats') renderChats();
     else if (v === 'snaps') loadSnaps();
+    else if (v === 'reports') loadReports();
     else { $('list').innerHTML = '<div class="bp-empty">设置在右边（手机上在下一页）。改了立刻生效，不打断正在回答的问题。</div>'; openSettings(); }
   };
   $('gearBtn').onclick = () => { gearOpen = !gearOpen; $('gset').hidden = !gearOpen; if (gearOpen) renderGear(); };
@@ -321,6 +370,7 @@
   };
   $('back').onclick = () => { $('wrap').classList.remove('open'); if (cur === 'settings') { side = 'chats'; seg($('sideTabs'), 'chats'); renderChats(); } cur = null; };
   bridge.on('scan', () => loadChats());
+  bridge.on('report', () => { if (side === 'reports') loadReports(); bridge.toast('收到一条新上报'); });
   bridge.on('message', (p) => { loadChats(); if (p && p.cid === cur && view === 'log') loadView(); });
   bridge.onStatus(() => loadChats());
   setInterval(() => { if (last && (last.waitingScan || !last.online)) loadChats(); }, 15_000);   // 等扫码 / 连不上时勤刷

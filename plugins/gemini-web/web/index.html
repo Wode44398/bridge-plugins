@@ -1,0 +1,258 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gemini 网页版</title>
+<link rel="stylesheet" href="/plugins/_sdk/bridge-plugin.css">
+<style>
+  .hero { display: flex; align-items: flex-start; gap: 14px; margin: 4px 0 18px; }
+  .hero .mark { width: 40px; height: 40px; border-radius: 11px; flex: none; display: grid; place-items: center;
+    background: linear-gradient(135deg, #4f8df6, #9b72f2 55%, #d96570); color: #fff; }
+  .hero .mark svg { width: 22px; height: 22px; }
+  .hero .t { flex: 1; min-width: 0; }
+  .hero h1 { font-size: 19px; font-weight: 600; margin: 0 0 3px; letter-spacing: -.01em; }
+  .hero .sub { font-size: 12.5px; color: var(--bp-muted); display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: center; }
+  .hero .sub code { font-size: 12px; user-select: all; }
+  .acts { display: flex; gap: 6px; flex-wrap: wrap; }
+  .acts .bp-btn { font-size: 12.5px; padding: 5px 11px; }
+  .err { margin: -6px 0 16px; padding: 9px 12px; border-radius: 10px; font-size: 12.5px; line-height: 1.5;
+    background: color-mix(in srgb, var(--bp-crit) 14%, transparent); color: var(--bp-text); overflow-wrap: anywhere; }
+  .acc-name { display: flex; align-items: center; gap: 8px; min-width: 0; }
+  .acc-name b { font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .meta { font-size: 12px; color: var(--bp-muted); overflow-wrap: anywhere; }
+  .meta .bad { color: var(--bp-crit); }
+  .chips { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 5px; }
+  .chip { font-size: 11px; padding: 1px 7px; border-radius: 999px; background: var(--bp-hover); color: var(--bp-muted); font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+  .row-acts { display: flex; align-items: center; gap: 6px; flex: none; }
+  .row-acts .bp-btn { font-size: 12px; padding: 4px 9px; }
+  .add { display: none; flex-direction: column; gap: 8px; padding: 12px 14px; }
+  .add.on { display: flex; }
+  .add .two { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 8px; }
+  .add textarea { min-height: 72px; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; }
+  .add .foot { display: flex; align-items: center; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
+  .add .foot .meta { flex: 1; min-width: 180px; }
+  details.help { font-size: 12.5px; color: var(--bp-muted); line-height: 1.6; }
+  details.help summary { cursor: pointer; color: var(--bp-accent); }
+  details.help ol { margin: 6px 0 0; padding-left: 18px; }
+  .reqs { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  .reqs td { padding: 7px 10px; border-top: .5px solid var(--bp-line); vertical-align: top; }
+  .reqs tr:first-child td { border-top: 0; }
+  .reqs .num { text-align: right; white-space: nowrap; color: var(--bp-muted); font-variant-numeric: tabular-nums; }
+  .reqs .pv { color: var(--bp-muted); overflow-wrap: anywhere; }
+  .reqs .pv.bad { color: var(--bp-crit); }
+  .reqs .pv div { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .reqs .who { white-space: nowrap; }
+  .reqs .m { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; white-space: nowrap; }
+  .stat { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0; }
+  .stat div { padding: 12px 14px; }
+  .stat div + div { border-left: .5px solid var(--bp-line); }
+  .stat b { display: block; font-size: 18px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .stat span { font-size: 12px; color: var(--bp-muted); }
+  @media (max-width: 560px) {
+    .add .two { grid-template-columns: 1fr; }
+    .stat { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .stat div:nth-child(3) { border-left: 0; }
+    .stat div:nth-child(n+3) { border-top: .5px solid var(--bp-line); }
+    .reqs .hide-s { display: none; }
+  }
+</style>
+</head>
+<body>
+<div class="bp-page">
+  <div class="hero">
+    <div class="mark"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2c.4 5.3 4.7 9.6 10 10-5.3.4-9.6 4.7-10 10-.4-5.3-4.7-9.6-10-10 5.3-.4 9.6-4.7 10-10z"/></svg></div>
+    <div class="t">
+      <h1>Gemini 网页版</h1>
+      <div class="sub"><span id="badge" class="bp-badge">…</span><span id="sub"></span></div>
+    </div>
+    <div class="acts">
+      <button class="bp-btn" id="refresh">刷新</button>
+      <button class="bp-btn" id="restart">重启反代</button>
+    </div>
+  </div>
+  <div class="err" id="err" hidden></div>
+
+  <div id="form-agents"></div>
+
+  <div class="bp-section">
+    <div class="bp-section-title">Google 账号</div>
+    <div class="bp-group" id="accounts"></div>
+    <div class="bp-group" style="margin-top:8px">
+      <div class="bp-row">
+        <div class="bp-row-main"><div class="bp-row-title">添加账号</div><div class="bp-row-desc">多个账号会轮流用，某个出错自动换下一个</div></div>
+        <div class="row-acts">
+          <button class="bp-btn bp-btn-primary" id="toggle-add">添加</button>
+        </div>
+      </div>
+      <div class="add" id="add">
+        <div class="two">
+          <input class="bp-input" id="a-name" placeholder="名字（如：主号）" maxlength="40">
+          <input class="bp-input" id="a-ts" placeholder="__Secure-1PSIDTS（可选）">
+        </div>
+        <textarea class="bp-textarea" id="a-cookie" placeholder="粘贴整段 Cookie，或 __Secure-1PSID 的值"></textarea>
+        <details class="help"><summary>怎么取 Cookie</summary>
+          <ol>
+            <li>用 Chrome / Edge 打开 gemini.google.com，确认已登录、能正常聊天</li>
+            <li>F12 → Network（网络）→ 随便点一个发往 gemini.google.com 的请求</li>
+            <li>Request Headers 里的 <b>Cookie</b> 整段复制，粘到上面（会自动识别出 __Secure-1PSID / 1PSIDTS）</li>
+          </ol>
+          Cookie 等同登录凭证：只存在服务器上这个插件的数据目录，页面上只显示打码后的样子。
+        </details>
+        <div class="foot">
+          <span class="meta" id="add-msg"></span>
+          <button class="bp-btn bp-btn-plain" id="add-cancel">取消</button>
+          <button class="bp-btn bp-btn-primary" id="add-ok">添加并测试</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="bp-section">
+    <div class="bp-section-title">用量</div>
+    <div class="bp-group stat" id="stat"></div>
+  </div>
+
+  <div class="bp-section">
+    <div class="bp-section-title">最近请求</div>
+    <div class="bp-group" id="reqs"></div>
+  </div>
+
+  <div id="form-run"></div>
+</div>
+
+<script type="module">
+  import { bridge } from '/plugins/_sdk/bridge-plugin.js';
+  const $ = (id) => document.getElementById(id);
+  const h = (tag, cls, text) => { const n = document.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = text; return n; };
+  const ago = (t) => {
+    if (!t) return '';
+    const s = Math.max(0, Date.now() / 1000 - t);
+    return s < 60 ? '刚刚' : s < 3600 ? Math.floor(s / 60) + ' 分钟前' : s < 86400 ? Math.floor(s / 3600) + ' 小时前' : Math.floor(s / 86400) + ' 天前';
+  };
+  const hhmm = (t) => { const d = new Date(t * 1000); return d.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', second: '2-digit' }); };
+  const STATUS = { ok: ['连通', 'ok'], error: ['出错', 'crit'], cooldown: ['冷却中', 'warn'], unknown: ['未测试', ''], testing: ['测试中', ''] };
+
+  await bridge.ready();
+  let data = null;
+  let busy = new Set();
+
+  async function load(fresh) {
+    try { data = await bridge.json('overview' + (fresh ? '?fresh=1' : '')); }
+    catch (e) { data = null; $('err').hidden = false; $('err').textContent = e.message; return; }
+    draw();
+  }
+
+  function draw() {
+    const d = data;
+    const tone = d.phase === 'setup' ? ['准备环境', ''] : d.phase === 'error' ? ['出错', 'crit'] : !d.online ? ['未连接', 'warn'] : !d.accounts.length ? ['没有账号', 'warn'] : ['运行中', 'ok'];
+    $('badge').className = 'bp-badge ' + tone[1]; $('badge').textContent = tone[0];
+    $('sub').textContent = '';
+    const code = h('code', '', d.base); $('sub').append(code, h('span', '', '· 提供给 ' + d.providedTo + ' · ' + d.models.length + ' 个模型'));
+    $('err').hidden = !d.error; $('err').textContent = d.error || '';
+    $('toggle-add').disabled = !d.online;
+
+    // 账号
+    const box = $('accounts'); box.textContent = '';
+    if (!d.online) box.append(h('div', 'bp-empty', d.phase === 'setup' ? '正在准备 Python 环境，第一次约 1 分钟…' : '反代还没连上'));
+    else if (!d.accounts.length) box.append(h('div', 'bp-empty', '还没有账号。点「添加」粘贴 gemini.google.com 的 Cookie。'));
+    for (const a of d.accounts) {
+      const row = h('div', 'bp-row');
+      const main = h('div', 'bp-row-main');
+      const nm = h('div', 'acc-name');
+      const st = a.cooldownUntil && a.cooldownUntil * 1000 > Date.now() ? STATUS.cooldown : busy.has(a.id) ? STATUS.testing : STATUS[a.status] || [a.status, ''];
+      nm.append(h('b', '', a.name), Object.assign(h('span', 'bp-badge ' + st[1], st[0])));
+      main.append(nm);
+      const meta = h('div', 'meta');
+      const bits = [a.psid + (a.hasTs ? '' : ' · 没有 1PSIDTS')];
+      if (a.requests) bits.push(`${a.requests} 次请求` + (a.failures ? `，失败 ${a.failures}` : '') + (a.avgMs ? `，平均 ${(a.avgMs / 1000).toFixed(1)}s` : ''));
+      if (a.lastOk) bits.push('上次成功 ' + ago(a.lastOk));
+      meta.textContent = bits.join(' · ');
+      main.append(meta);
+      if (a.error) main.append(h('div', 'meta bad', a.error));
+      if (a.status === 'ok' && a.models.length) { const c = h('div', 'chips'); for (const m of a.models) c.append(h('span', 'chip', m)); main.append(c); }
+      for (const q of a.quota || []) main.append(h('div', 'meta', `${q.label}：已用 ${q.pct}%`));
+      const acts = h('div', 'row-acts');
+      const t = h('button', 'bp-btn', busy.has(a.id) ? '测试中…' : '测试'); t.disabled = busy.has(a.id);
+      t.onclick = () => test(a.id);
+      const sw = h('label', 'bp-switch'); const inp = h('input'); inp.type = 'checkbox'; inp.checked = a.enabled; inp.title = '启用';
+      inp.onchange = () => act('accounts/update', { id: a.id, enabled: inp.checked }, inp.checked ? '已启用' : '已停用').catch(() => { inp.checked = !inp.checked; });
+      sw.append(inp, h('span'));
+      const del = h('button', 'bp-btn bp-btn-plain', '删除');
+      del.onclick = async () => { if (await bridge.confirm({ title: `删除账号「${a.name}」？`, desc: 'Cookie 会一并删掉，要用时得重新粘贴。', yes: '删除', danger: true })) act('accounts/delete', { id: a.id }, '已删除'); };
+      acts.append(t, sw, del);
+      row.append(main, acts);
+      box.append(row);
+    }
+
+    // 用量
+    const c = d.counters;
+    const st = $('stat'); st.textContent = '';
+    const cell = (v, l) => { const x = h('div'); x.append(h('b', '', v), h('span', '', l)); st.append(x); };
+    cell(c ? String(c.total) : '—', '请求');
+    cell(c ? String(c.failed) : '—', '失败');
+    cell(c ? fmtK(c.tokens_in) : '—', '输入 token（估）');
+    cell(c ? fmtK(c.tokens_out) : '—', '输出 token（估）');
+
+    // 最近请求
+    const rq = $('reqs'); rq.textContent = '';
+    if (!d.requests.length) rq.append(h('div', 'bp-empty', '还没有请求'));
+    else {
+      const tb = h('table', 'reqs');
+      for (const r of d.requests.slice(0, 15)) {
+        const tr = h('tr');
+        tr.append(h('td', 'num', hhmm(r.ts)), h('td', 'm', r.model || '—'), h('td', 'hide-s meta who', r.account || ''),
+          Object.assign(h('td', 'pv' + (r.status !== 200 ? ' bad' : '')), { title: r.error || r.preview || '' }),
+          h('td', 'num', r.ms ? (r.ms / 1000).toFixed(1) + 's' : ''));
+        tr.children[3].append(h('div', '', r.status !== 200 ? `${r.status} ${r.error || ''}` : r.preview || ''));
+        tb.append(tr);
+      }
+      rq.append(tb);
+    }
+  }
+  const fmtK = (n) => (n >= 10000 ? (n / 1000).toFixed(n >= 100000 ? 0 : 1) + 'k' : String(n || 0));
+
+  async function act(p, body, ok) {
+    try { await bridge.json(p, body); if (ok) bridge.toast(ok); await load(); }
+    catch (e) { bridge.toast(e.message, { error: true }); throw e; }
+  }
+  async function test(id) {
+    busy.add(id); draw();
+    try {
+      const r = await bridge.json('accounts/test', { id });
+      bridge.toast(`连接正常 · ${r.elapsed}s · ${r.models.length} 个模型`);
+    } catch (e) { bridge.toast(e.message, { error: true }); }
+    busy.delete(id); await load(true);
+  }
+
+  $('refresh').onclick = () => load(true);
+  $('restart').onclick = async () => {
+    $('restart').disabled = true;
+    try { const r = await bridge.action('restart'); bridge.toast(r?.message || '已重启'); } catch (e) { bridge.toast(e.message, { error: true }); }
+    $('restart').disabled = false;
+    setTimeout(() => load(true), 3000);
+  };
+  $('toggle-add').onclick = () => { $('add').classList.toggle('on'); $('a-cookie').focus(); };
+  $('add-cancel').onclick = () => $('add').classList.remove('on');
+  $('add-ok').onclick = async () => {
+    const cookie = $('a-cookie').value.trim();
+    if (!cookie) { $('add-msg').textContent = '先粘贴 Cookie'; return; }
+    $('add-ok').disabled = true; $('add-msg').textContent = '添加中…';
+    try {
+      const r = await bridge.json('accounts/add', { name: $('a-name').value, cookie, psidts: $('a-ts').value });
+      $('a-cookie').value = ''; $('a-ts').value = ''; $('a-name').value = '';
+      $('add').classList.remove('on'); $('add-msg').textContent = '';
+      await load();
+      if (r.id) await test(r.id);
+    } catch (e) { $('add-msg').textContent = e.message; }
+    $('add-ok').disabled = false;
+  };
+
+  bridge.form($('form-agents'), { sections: ['提供给'], onChange: () => load() });
+  bridge.form($('form-run'), { sections: ['运行方式', '网络'], onChange: () => setTimeout(() => load(true), 1500) });
+  bridge.onStatus(() => load());
+  await load();
+  setInterval(() => { if (!document.hidden) load(); }, 15000);
+</script>
+</body>
+</html>
