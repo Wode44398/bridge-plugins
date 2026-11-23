@@ -1,0 +1,80 @@
+/* 安卓卡子页（Logcat / 应用 / 文件 / 控制 / 快照 / 控件树）共用的外观。
+   全部挂在 .ap 下面，不外溢；--ctl 由 AndroidPanel 的 .aw 给（30px，粗指针 36px）。 */
+.ap { flex: 1; min-height: 0; min-width: 0; display: flex; flex-direction: column; position: relative; font-size: 12.5px; color: var(--text); }
+.ap-bar { flex: none; display: flex; align-items: center; flex-wrap: wrap; gap: 6px; padding: 8px 10px; }
+.ap-bar + .ap-bar { padding-top: 0; }
+.ap-sp { flex: 1; }
+.ap-btn { flex: none; display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: var(--ctl); padding: 0 10px; border-radius: 8px;
+  color: var(--serif); font-size: 12.5px; white-space: nowrap; box-shadow: inset 0 0 0 1px var(--divider); transition: background-color .12s ease, color .12s ease; }
+.ap-btn svg { width: 15px; height: 15px; flex: none; }
+.ap-btn:disabled { opacity: .5; }
+.ap-btn:not(:disabled):active { background: var(--hover); }
+@media (hover: hover) { .ap-btn:not(:disabled):hover { background: var(--hover); color: var(--text); } }
+.ap-btn.on { color: var(--coral); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--coral) 45%, transparent); }
+.ap-btn.pri { background: var(--text); color: var(--bg); box-shadow: none; font-weight: 500; }
+.ap-btn.pri:not(:disabled):active { opacity: .8; background: var(--text); }
+@media (hover: hover) { .ap-btn.pri:not(:disabled):hover { background: var(--text); color: var(--bg); opacity: .9; } }
+.ap-btn.crit { color: var(--crit); }
+.ap-ibtn { flex: none; width: var(--ctl); height: var(--ctl); display: inline-flex; align-items: center; justify-content: center; border-radius: 8px; color: var(--serif); }
+.ap-ibtn svg { width: 16px; height: 16px; }
+.ap-ibtn:disabled { opacity: .4; }
+.ap-ibtn:not(:disabled):active { background: var(--hover); }
+@media (hover: hover) { .ap-ibtn:not(:disabled):hover { background: var(--hover); color: var(--text); } }
+.ap-ibtn.on { color: var(--coral); }
+.ap-ibtn.crit { color: var(--crit); }
+
+.ap-in, .ap-sel { min-width: 0; height: var(--ctl); padding: 0 9px; border-radius: 8px; border: none; outline: none; background: var(--hover); color: var(--text);
+  font: inherit; font-size: 12.5px; }
+.ap-sel { padding-right: 4px; cursor: pointer; }
+.ap-sel option { background: var(--q-card); color: var(--text); }
+.ap-in:focus, .ap-sel:focus-visible { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--coral) 55%, transparent); }
+.ap-in::placeholder { color: var(--muted); }
+.ap-in.grow { flex: 1 1 120px; width: 0; min-width: 110px; }
+.ap-in.num { font-variant-numeric: tabular-nums; }
+textarea.ap-in { height: auto; min-height: 56px; padding: 7px 9px; resize: vertical; line-height: 1.45; }
+
+.ap-list { flex: 1; min-height: 0; overflow: auto; overscroll-behavior: contain; padding: 0 6px 8px; }
+.ap-row { display: flex; align-items: center; gap: 8px; min-height: 36px; padding: 3px 4px 3px 8px; border-radius: 8px; }
+@media (hover: hover) { .ap-row:hover { background: var(--hover); } }
+.ap-row.sel { background: var(--hover); }
+.ap-row .ap-ic { width: 16px; height: 16px; flex: none; color: var(--serif); }
+.ap-row-t { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.ap-name { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; color: var(--text); font-size: 12.5px; }
+.ap-sub { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; color: var(--muted); font-size: 11px; font-variant-numeric: tabular-nums; }
+.ap-acts { flex: none; display: flex; align-items: center; gap: 0; }
+
+.ap-empty { padding: 26px 16px; text-align: center; color: var(--muted); font-size: 12.5px; line-height: 1.55; }
+.ap-err { margin: 0 10px 8px; padding: 8px 10px; border-radius: 8px; background: color-mix(in srgb, var(--crit) 10%, transparent); color: var(--crit);
+  font-size: 12px; line-height: 1.45; white-space: pre-wrap; word-break: break-word; }
+.ap-note { margin: 0 10px 8px; color: var(--muted); font-size: 11.5px; line-height: 1.45; white-space: pre-wrap; word-break: break-word; }
+.ap-out { margin: 0 10px 8px; padding: 8px 10px; border-radius: 8px; background: var(--hover); color: var(--serif); font-size: 12px; line-height: 1.5;
+  white-space: pre-wrap; word-break: break-word; max-height: 140px; overflow: auto; }
+.ap-out.bad { color: var(--crit); }
+
+/* 上传 / 安装进度 */
+.ap-prog { margin: 0 10px 8px; display: flex; flex-direction: column; gap: 4px; }
+.ap-prog-r { display: flex; align-items: center; gap: 8px; font-size: 11.5px; color: var(--muted); }
+.ap-prog-n { flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; color: var(--serif); }
+.ap-prog-bar { height: 3px; border-radius: 2px; background: var(--hover); overflow: hidden; }
+.ap-prog-bar > i { display: block; height: 100%; background: var(--text); opacity: .7; transition: width .15s linear; }
+
+/* 拖放提示 */
+.ap-drop { position: absolute; inset: 6px; z-index: 4; display: flex; align-items: center; justify-content: center; pointer-events: none; border-radius: 10px;
+  border: 1.5px dashed color-mix(in srgb, var(--text) 35%, transparent); background: color-mix(in srgb, var(--bg) 78%, transparent);
+  color: var(--serif); font-size: 13px; }
+
+/* 控制页的分组 */
+.ap-sec { padding: 10px 10px 12px; display: flex; flex-direction: column; gap: 8px; }
+.ap-sec + .ap-sec { border-top: 1px solid var(--divider); }
+.ap-sec-h { font-size: 11.5px; color: var(--muted); }
+.ap-line { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.ap-lab { flex: none; color: var(--muted); font-size: 12px; }
+.ap-range { flex: 1; min-width: 80px; accent-color: var(--text); height: var(--ctl); }
+.ap-tag { flex: none; padding: 1px 6px; border-radius: 6px; background: var(--hover); color: var(--muted); font-size: 10.5px; line-height: 16px; white-space: nowrap; }
+
+.ap-spin { width: 13px; height: 13px; border-radius: 50%; border: 1.6px solid currentColor; border-right-color: transparent; animation: apSp .8s linear infinite; opacity: .8; flex: none; }
+@keyframes apSp { to { transform: rotate(360deg); } }
+
+.aw.coarse .ap-row { min-height: 44px; }
+.aw.coarse .ap-btn { font-size: 13.5px; }
+.aw.coarse .ap-in, .aw.coarse .ap-sel { font-size: 16px; } /* 防 iOS 聚焦放大 */

@@ -1,0 +1,51 @@
+{
+  "id": "android",
+  "name": "安卓模拟器",
+  "version": "1.0.0",
+  "description": "工作区里的「安卓」卡：看着安卓模拟器（或连在服务器电脑上的真机）的实时画面直接操作，卡片放宽后像 Android Studio 一样带 Logcat、应用、设备文件、模拟控制、快照、控件树、录屏；Claude、dimensio、Antigravity 也能用同一台设备装包、点按、截图、读日志。只对服务器主机开放，需要服务器电脑上装有 Android SDK 和模拟器。",
+  "author": "claude-bridge",
+  "homepage": "https://github.com/Wode44398/bridge-plugins",
+  "entry": "index.mjs",
+  "category": "devices",
+  "engines": { "bridge": ">=8.83", "pluginApi": 3 },
+  "permissions": ["routes", "claude.tools", "claude.control", "process", "ui"],
+  "config": {
+    "sdkPath": {
+      "type": "string",
+      "label": "Android SDK 位置",
+      "default": "",
+      "desc": "留空 = 按 ANDROID_HOME、ANDROID_SDK_ROOT、%LOCALAPPDATA%\\Android\\Sdk 的顺序找。"
+    },
+    "quality": {
+      "type": "string",
+      "label": "画质",
+      "default": "standard",
+      "enum": [
+        { "value": "smooth", "label": "流畅（经隧道用手机看）" },
+        { "value": "standard", "label": "标准" },
+        { "value": "high", "label": "高清（本机或局域网）" }
+      ]
+    },
+    "idleMinutes": {
+      "type": "integer",
+      "label": "无人使用多少分钟后自动关模拟器",
+      "default": 30,
+      "min": 0,
+      "max": 1440,
+      "desc": "0 = 不自动关。关机时会存快照，下次几秒就能开。"
+    },
+    "maxEmulators": {
+      "type": "integer",
+      "label": "最多同时开几台模拟器",
+      "default": 2,
+      "min": 1,
+      "max": 8
+    },
+    "tools": {
+      "type": "boolean",
+      "label": "给 agent 安卓工具",
+      "default": true,
+      "desc": "关掉后卡片照常能用，只是 Claude、dimensio、Antigravity 不再拿到 android 工具。"
+    }
+  }
+}

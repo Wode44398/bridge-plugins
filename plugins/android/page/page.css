@@ -1,0 +1,29 @@
+/* 插件页面的底：把 SDK 给的 --bp-* 颜色接到界面用的名字上（组件沿用 bridge 工作区的变量名），铺满卡片 */
+:root {
+  --text: var(--bp-text, #ececec);
+  --muted: var(--bp-muted, #9a9a9a);
+  --hover: var(--bp-hover, rgba(255, 255, 255, .07));
+  --hover-strong: color-mix(in srgb, var(--hover) 60%, var(--text) 14%);
+  --serif: color-mix(in srgb, var(--text) 80%, var(--muted));
+  --coral: var(--bp-brand, #d97757);
+  --crit: var(--bp-crit, #e5484d);
+  --ok: var(--bp-ok, #30a46c);
+  --divider: var(--bp-line, rgba(255, 255, 255, .1));
+  --bg: var(--bp-bg, #1f1f1f);
+  --card: var(--bp-card, #262626);
+  --q-card: var(--bp-card, #262626);
+  --q-shadow: 0 10px 30px rgba(0, 0, 0, .28), 0 2px 6px rgba(0, 0, 0, .18);
+  color-scheme: dark;
+}
+html[data-theme="light"] {
+  --q-shadow: 0 10px 30px rgba(0, 0, 0, .12), 0 2px 6px rgba(0, 0, 0, .08);
+  color-scheme: light;
+}
+html, body { margin: 0; height: 100%; background: transparent; color: var(--text);
+  font-family: var(--bp-font, system-ui, -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif); font-size: 13px;
+  -webkit-font-smoothing: antialiased; overflow: hidden; }
+#app { height: 100%; display: flex; flex-direction: column; }
+button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
+button:disabled { cursor: default; }
+input, select, textarea { font: inherit; color: inherit; }
+* { box-sizing: border-box; }

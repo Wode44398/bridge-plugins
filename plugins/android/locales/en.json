@@ -1,0 +1,34 @@
+{
+  "name": "Android emulator",
+  "description": "An Android card in the workspace: watch and control an Android emulator (or a phone connected to the server computer) live. Widen the card for an Android Studio–style layout with Logcat, apps, device files, simulated controls, snapshots, a layout inspector and screen recording. Claude, dimensio and Antigravity can use the same device to install apps, tap, take screenshots and read logs. Host only; needs the Android SDK and emulator on the server computer.",
+  "ui": {
+    "workbench": {
+      "device": { "title": "Android" }
+    }
+  },
+  "config": {
+    "sdkPath": {
+      "label": "Android SDK location",
+      "desc": "Leave empty to look in ANDROID_HOME, ANDROID_SDK_ROOT, then %LOCALAPPDATA%\\Android\\Sdk."
+    },
+    "quality": {
+      "label": "Quality",
+      "enum": {
+        "smooth": "Smooth (phone over the tunnel)",
+        "standard": "Normal",
+        "high": "High (this computer or local network)"
+      }
+    },
+    "idleMinutes": {
+      "label": "Turn off idle emulators after (minutes)",
+      "desc": "0 = never. A snapshot is saved on shutdown, so it starts again in seconds."
+    },
+    "maxEmulators": {
+      "label": "Maximum emulators running at once"
+    },
+    "tools": {
+      "label": "Give agents the Android tool",
+      "desc": "When off, the card still works, but Claude, dimensio and Antigravity no longer get the android tool."
+    }
+  }
+}
