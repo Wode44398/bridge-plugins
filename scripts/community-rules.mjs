@@ -88,11 +88,20 @@ function literalArg(src, at) {
 const mod = (names) => new RegExp(String.raw`(?:\bfrom\s*|(?<![\w$.])(?:import|require)\s*\(\s*|^\s*import\s+)(['"])(?:node:)?(?:${names})(?:\/[\w/]*)?\1`, 'gm');
 
 // 服务端代码里一律不许出现的写法（命中即不通过）
+// 静态规则拦不全所有花样，这里按「原文里出现这个名字就拦」来写，宁可误伤：
+//   · 扫原文、不先剥注释——剥注释要先认出字符串和正则字面量，认错一处（return /'/ 之类）就能把真代码当成注释藏过去；
+//   · eval / Function 连属性写法一起拦（globalThis.eval、const e = eval 转手）；注释里的类型写成 {function}；
+//   · 取 constructor（(()=>{}).constructor('…') 能造出 Function）、计算属性访问全局对象（globalThis['ev'+'al']）；
+//   · node:module（register 钩子能加载任意代码）、从 data: / http(s): / blob: 地址 import。
 const FORBIDDEN = [
-  { re: /(?<![\w$.])eval\s*\(/g, msg: '不许用 eval' },
-  { re: /\bnew\s+Function\s*\(/g, msg: '不许用 new Function' },
-  { re: /(?<![\w$.])Function\s*\(\s*['"`]/g, msg: '不许用 Function(…) 拼代码' },
+  { re: /(?<![\w$])eval(?![\w$])/g, msg: '不许出现 eval（注释里也别写这个词）' },
+  { re: /(?<![\w$])Function(?![\w$])/g, msg: '不许出现 Function（构造函数能拼代码执行；注释里的类型写成 {function}）' },
+  { re: /\.\s*constructor(?![\w$])|\[\s*['"`]constructor['"`]\s*\]/g, msg: '不许取 constructor（可以借它造出 Function）' },
+  { re: /(?<![\w$.])(globalThis|global|self|window)\s*\[/g, msg: '不许用计算属性访问全局对象' },
+  { re: /(?:\bfrom\s*|(?<![\w$])import\s*\(\s*)['"`](?:data|https?|blob):/g, msg: '不许从 data: / http(s): / blob: 地址加载模块' },
+  { re: /\bmainModule\b/g, msg: '不许用 process.mainModule' },
   { re: mod('vm'), msg: '不许用 vm 模块' },
+  { re: mod('module'), msg: '不许用 module 模块（register 钩子能加载任意代码）' },
   { re: /\bcreateRequire\b/g, msg: '不许用 createRequire（读 JSON 用 fs，引模块用静态 import）' },
   { re: /\bprocess\s*\.\s*(binding|dlopen|_linkedBinding)\b/g, msg: '不许用 process.binding / dlopen' },
   { re: /\bWebAssembly\b/g, msg: '不许用 WebAssembly' },
@@ -120,8 +129,9 @@ function scanServerFile(file, src, errors, capHits) {
     const m = f.re.exec(src);
     if (m) errors.push({ code: 'dynamic-code', file, line: lineAt(src, m.index), message: `${file} 第 ${lineAt(src, m.index)} 行：${f.msg}` });
   }
-  for (const [kw, label] of [['import', 'import()'], ['require', 'require()']]) {
-    const re = new RegExp(`(?<![\\w$.])${kw}\\s*\\(`, 'g');
+  // x.import(…) 是别的对象的方法，不算；module.require(…) 是真的 require，要算
+  for (const [kw, label, before] of [['import', 'import()', '[\\w$.]'], ['require', 'require()', '[\\w$]']]) {
+    const re = new RegExp(`(?<!${before})${kw}\\s*\\(`, 'g');
     let m;
     while ((m = re.exec(src))) {
       if (!literalArg(src, m.index + m[0].length)) {

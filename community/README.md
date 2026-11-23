@@ -133,8 +133,8 @@ git checkout <索引里该版本的 commit>
 node scripts/zip.mjs community/<id> <id>-<版本>.zip
 ```
 
-会打印 `sha256` 与字节数，应与索引里的一致。打包规则：目录下全部文件去掉 `market.json`，按路径排序、固定时间戳、deflate 压缩。
-deflate 的输出依赖 Node 自带的 zlib，复现请用和 CI 相同的 Node 22。仓库的 `.gitattributes` 让 `community/` 下的文件按字节原样检出
+会打印 `sha256` 与字节数，应与索引里的一致。打包规则：目录下全部文件去掉 `market.json`，按路径排序、固定时间戳、只存储不压缩
+（压缩的字节会随 Node 版本变，不压缩才能保证用任何 Node 都复现出同一个 sha256）。仓库的 `.gitattributes` 让 `community/` 下的文件按字节原样检出
 （Windows 上不会被换成 CRLF），所以在哪个系统上 clone 都一样。
 
 ## 下架与举报

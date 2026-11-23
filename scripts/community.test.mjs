@@ -57,10 +57,11 @@ test('zip 确定性：输入顺序不同也逐字节相同；固定时间戳、U
   const b = zipEntries([...entries].reverse());
   assert.ok(a.equals(b));
   assert.equal(sha256(a), sha256(b));
-  // 第一个本地头：版本 20、标志 0x0800、deflate、时间 0、日期 1980-01-01、额外字段长度 0
+  // 第一个本地头：版本 10、标志 0x0800、只存储、时间 0、日期 1980-01-01、额外字段长度 0
   assert.equal(a.readUInt32LE(0), 0x04034b50);
   assert.equal(a.readUInt16LE(6), 0x0800);
-  assert.equal(a.readUInt16LE(8), 8);
+  assert.equal(a.readUInt16LE(4), 10);
+  assert.equal(a.readUInt16LE(8), 0);
   assert.equal(a.readUInt16LE(10), 0);
   assert.equal(a.readUInt16LE(12), 0x21);
   assert.equal(a.readUInt16LE(28), 0);

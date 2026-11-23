@@ -7,12 +7,11 @@
 //   · 制作系统记为 MS-DOS、外部属性为 0：不把作者机器上的文件权限带进包；
 //   · 只写文件条目、不写目录条目（解压时目录按路径自动建出来，空目录在 git 里本来也不存在）；
 //   · 文件名一律 UTF-8 并置通用标志位 11，bsdtar / unzip / 资源管理器都按 UTF-8 解，中文名不乱码；
-//   · 压缩用 zlib.deflateRawSync（固定 level 9）。注意：deflate 的字节输出依赖 Node 自带的 zlib 版本，
-//     复现时请用和 CI 相同大版本的 Node（见 community/README.md）。
+//   · 只存储、不压缩：deflate 的字节输出随 Node 自带的 zlib 版本变，压了就没法保证别人用别的 Node 复现出同一个 sha256。
+//     社区插件合计不超过 8 MB，不压缩的代价可以接受。
 //
 // 用法（复现 CI 打出的包）：node scripts/zip.mjs community/<id> [输出.zip]
 //   打印 sha256 与字节数；market.json 不进包，与 community-publish.mjs 完全一致。
-import zlib from 'node:zlib';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -21,8 +20,8 @@ import { fileURLToPath } from 'node:url';
 const DOS_TIME = 0;                              // 00:00:00
 const DOS_DATE = ((1980 - 1980) << 9) | (1 << 5) | 1; // 1980-01-01
 const FLAG_UTF8 = 0x0800;
-const VERSION = 20;                              // 2.0：deflate 所需的最低版本；高字节 0 = MS-DOS
-const DEFLATE = 8;
+const VERSION = 10;                              // 1.0：只存储所需的最低版本；高字节 0 = MS-DOS
+const STORE = 0;
 
 // CRC-32（IEEE 802.3，zip 用的那个）。node:zlib 的 crc32 只在较新的 Node 里有，自己查表最稳。
 const CRC_TABLE = (() => {
@@ -58,7 +57,7 @@ export function zipEntries(entries) {
   const centrals = [];
   let offset = 0;
   for (const { name, data } of list) {
-    const comp = zlib.deflateRawSync(data, { level: 9 });
+    const comp = data;
     const crc = crc32(data);
     if (data.length > 0xfffffffe || comp.length > 0xfffffffe || offset > 0xfffffffe) throw new Error('包太大（不支持 zip64）');
 
@@ -66,7 +65,7 @@ export function zipEntries(entries) {
     lh.writeUInt32LE(0x04034b50, 0);
     lh.writeUInt16LE(VERSION, 4);
     lh.writeUInt16LE(FLAG_UTF8, 6);
-    lh.writeUInt16LE(DEFLATE, 8);
+    lh.writeUInt16LE(STORE, 8);
     lh.writeUInt16LE(DOS_TIME, 10);
     lh.writeUInt16LE(DOS_DATE, 12);
     lh.writeUInt32LE(crc, 14);
@@ -81,7 +80,7 @@ export function zipEntries(entries) {
     ch.writeUInt16LE(VERSION, 4);   // 制作版本 + 系统（0 = MS-DOS）
     ch.writeUInt16LE(VERSION, 6);   // 解压所需版本
     ch.writeUInt16LE(FLAG_UTF8, 8);
-    ch.writeUInt16LE(DEFLATE, 10);
+    ch.writeUInt16LE(STORE, 10);
     ch.writeUInt16LE(DOS_TIME, 12);
     ch.writeUInt16LE(DOS_DATE, 14);
     ch.writeUInt32LE(crc, 16);
