@@ -1,0 +1,99 @@
+# 社区插件投稿的自动检查与合并。社区市场不做人工审核：检查通过（且不是草稿）就按检查过的提交合并，再触发发布。
+#
+# pull_request_target 以目标仓库的权限运行，安全全靠下面几条（改这个文件前先读懂）：
+#   · 工作流与脚本只来自 main：checkout 固定 ref: main；PR 的代码不 checkout 到工作区、不 npm install、不执行；
+#   · PR 内容只当数据：git fetch 那个 head sha，再 git archive 只取 community/<id> 解到 pr/，交给 main 上的脚本读；
+#   · PR 的标题、正文、分支名、登录名等一律经 env 传进脚本，绝不用表达式内插进 run 脚本（防命令注入）；
+#   · 可信 checkout 不留凭据（persist-credentials: false），gh 用 GH_TOKEN；签名私钥这里拿不到（只在发布工作流的 environment 里）；
+#   · 合并带 sha = 检查时的 head sha：检查期间有新提交就合并失败，等下一轮 synchronize 重查。
+name: 社区插件自动检查
+
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened, ready_for_review]
+    branches: [main]
+    # 只改官方插件 / 脚本的 PR 不跑；只要碰了 community/ 就跑（顺带改了别处的会被判越界）
+    paths: ['community/**']
+
+permissions:
+  contents: write        # 合并
+  pull-requests: write   # 合并、读 PR
+  issues: write          # 写检查报告评论
+  actions: write         # 合并后触发发布工作流
+
+concurrency:
+  group: community-intake-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  intake:
+    if: github.repository == 'Wode44398/bridge-plugins'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPO: ${{ github.repository }}
+      PR: ${{ github.event.pull_request.number }}
+      HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+      AUTHOR: ${{ github.event.pull_request.user.login }}
+      CHANGED: ${{ github.event.pull_request.changed_files }}
+    steps:
+      - name: 取可信的 main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          path: trusted
+          persist-credentials: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: 取改动清单
+        run: |
+          gh api --paginate --slurp "repos/$REPO/pulls/$PR/files" > files.json
+
+      - name: 只取插件目录当数据
+        run: |
+          # 打印出的 id 已由脚本按 ^[a-z][a-z0-9-]{0,47}$ 校验，不合规就是空
+          ID="$(node trusted/scripts/community-check.mjs --files files.json --id-only)"
+          echo "ID=$ID" >> "$GITHUB_ENV"
+          mkdir -p pr
+          if [ -n "$ID" ]; then
+            git -C trusted fetch --no-tags --depth=1 origin "$HEAD_SHA" \
+              || git -C trusted fetch --no-tags --depth=1 origin "+refs/pull/$PR/head:refs/remotes/pr/head"
+            git -C trusted cat-file -e "$HEAD_SHA^{commit}"
+            # 目录在这个提交里不存在（整目录删除）时 archive 会失败：留空目录，由检查脚本给出原因
+            git -C trusted archive "$HEAD_SHA" -- "community/$ID" | tar -x -C pr || true
+          fi
+
+      - name: 检查
+        run: |
+          node trusted/scripts/community-check.mjs --dir pr --files files.json --author "$AUTHOR" --sha "$HEAD_SHA" --expect "$CHANGED" --out report.json --md report.md
+
+      - name: 评论报告（有旧报告就更新）
+        run: |
+          CID="$(gh api --paginate "repos/$REPO/issues/$PR/comments" \
+            --jq '.[] | select(.user.login == "github-actions[bot]" and (.body | startswith("<!-- community-intake -->"))) | .id' | head -n 1)"
+          if [ -n "$CID" ]; then
+            gh api -X PATCH "repos/$REPO/issues/comments/$CID" -F body=@report.md > /dev/null
+          else
+            gh api -X POST "repos/$REPO/issues/$PR/comments" -F body=@report.md > /dev/null
+          fi
+
+      - name: 通过就合并并触发发布
+        run: |
+          if [ "$(jq -r .ok report.json)" != "true" ]; then echo "检查没通过，不合并"; exit 0; fi
+          # 草稿状态以合并前这一刻为准（事件里的值可能已过时）
+          if [ "$(gh api "repos/$REPO/pulls/$PR" --jq .draft)" = "true" ]; then echo "草稿，转为可审阅后会重新检查并合并"; exit 0; fi
+          # 版本号由脚本校验过（x.y.z，否则为空），id 同上
+          VERSION="$(jq -r .version report.json)"
+          if gh api -X PUT "repos/$REPO/pulls/$PR/merge" \
+              -f merge_method=squash -f sha="$HEAD_SHA" \
+              -f commit_title="社区插件 $ID v$VERSION (#$PR)" > /dev/null; then
+            # GITHUB_TOKEN 做的合并不会触发 push 工作流，workflow_dispatch 是例外
+            gh workflow run community-publish.yml --repo "$REPO" --ref main -f id="$ID" -f author="$AUTHOR" -f pr="$PR"
+            echo "已合并，已触发发布"
+          else
+            echo "::warning::合并失败（多半是检查期间又有新提交，或与 main 冲突），等下一轮检查"
+          fi

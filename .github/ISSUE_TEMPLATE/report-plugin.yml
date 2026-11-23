@@ -1,0 +1,41 @@
+name: 举报社区插件
+description: 社区插件有恶意行为、窃取数据、冒充他人或严重问题时，用这个表单告诉维护者
+title: "[举报] "
+labels: ["community-report"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        社区插件只经过自动检查、没有人工审核。发现问题请尽量写清楚、附上证据，维护者核实后会吊销对应版本或整个插件，
+        已装的 bridge 刷新社区索引后会自动停用被吊销的版本。
+        **不要在这里贴你的令牌、密码、对话内容等隐私信息。**
+  - type: input
+    id: plugin
+    attributes:
+      label: 插件 id
+      description: 插件详情里显示的 id，也就是仓库里 community/<id>/ 的目录名
+      placeholder: todo-lite
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: 版本
+      description: 出问题的版本；不确定或所有版本都有问题就写「全部」
+      placeholder: 1.0.0
+    validations:
+      required: false
+  - type: textarea
+    id: problem
+    attributes:
+      label: 问题
+      description: 它做了什么不该做的事？在什么情况下发生？
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: 证据
+      description: 相关源码位置（可以链接到 community/<id>/ 里的具体行）、日志、截图等
+    validations:
+      required: false

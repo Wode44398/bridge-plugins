@@ -51,6 +51,48 @@ node scripts/publish.mjs --local "%TEMP%\bridge-market-local" --base http://127.
 输出目录里有所有版本 zip、`index.json`、`index.json.sig` 和该市场自己的 `releases.json`（不动仓库里的台账）。
 zip 的 url 为 `<base>/<zip 文件名>`。bridge 侧用 `config.pluginMarket.index` 指向它的 `index.json`。
 
+## 社区插件
+
+同一个仓库还承载社区市场：任何 bridge 用户经拉取请求把插件投到 `community/<id>/`，**只做自动检查、不人工审**，通过就自动合并上架。
+作者指南（投稿方式、目录结构、全部规则、复现 sha256）见 [community/README.md](community/README.md)。官方链路（`plugins/`、`releases.json`、`publish.mjs`）与社区互不相干。
+
+```
+community/<id>/                社区插件源码（作者提交）
+community-ledger.json          社区台账（CI 写，勿手改）：owners、plugins[id].meta / versions、seq、indexHash
+community-moderation.json      维护者手改：revoked [{id, versions: "*"|[...], reason, at}]、blockedAuthors、reservedIds
+scripts/community-rules.mjs    检查规则，由 sync-rules.mjs 从 bridge 同步，勿手改
+scripts/reserved-ids.json      保留 id（bridge 内置功能 + agent 扩展 + 界面词），sync-rules.mjs 生成
+scripts/sync-rules.mjs         node scripts/sync-rules.mjs <bridge 仓库路径>
+scripts/zip.mjs                纯 Node 确定性 zip（CI 在 ubuntu 上打包，不依赖 bsdtar）
+scripts/community-lib.mjs      读目录、打包、台账、索引、签名
+scripts/community-check.mjs    检查一个拉取请求（intake 工作流用）
+scripts/community-publish.mjs  打包新版本 -> Release c-<id>-v<ver> -> 台账 -> 签名索引 -> Release「community-index」
+scripts/community.test.mjs     单测：node --test scripts/community.test.mjs
+.gitattributes                 community/** 按字节原样检出（复现 sha256 的前提）
+.github/workflows/community-intake.yml   pull_request_target：检查 -> 评论报告 -> 按检查过的 sha 合并 -> 触发发布
+.github/workflows/community-publish.yml  workflow_dispatch + push(main)：串行发布，签名私钥在 environment 里
+.github/ISSUE_TEMPLATE/report-plugin.yml 举报表单
+```
+
+社区索引是 Release `community-index` 上的 `community.json` + `community.json.sig`，用**另一把**钥匙签（keyId `community-2026-11`），
+私钥只在 CI 的 environment 里；官方私钥仍只在维护者本机，两边互不串用。
+
+下架：改 `community-moderation.json` 推到 main，发布工作流会重签索引（没有新版本也会），各家 bridge 拉到后自动停用被吊销的版本。
+
+本地测试社区市场（不调 gh，台账与产物都写进输出目录）：
+
+```
+node scripts/community-publish.mjs --local "%TEMP%\bridge-community-local" --base http://127.0.0.1:8898 --key <社区私钥 pem> --author octocat
+```
+
+### 上线前维护者要做的
+
+1. 在仓库 Settings › Environments 建 environment `community-signing`，加 secret `COMMUNITY_SIGNING_KEY`，值为社区私钥 PEM 全文
+   （`bridge-private/plugin-market/community-signing-key.pem`）；可以把这个 environment 限定只给 `main` 分支用。
+2. main 的分支保护 / 规则集不能挡 `github-actions[bot]` 推送：发布工作流要把台账提交直接推到 main，intake 要用 GITHUB_TOKEN 合并拉取请求
+   （若开了「必须经拉取请求」「必须通过检查」之类规则，要把 GitHub Actions 加进绕过名单）。
+3. 建标签 `community-report`（举报表单会自动打上）。
+
 ## 签名私钥
 
 - 私钥只在维护者本机（默认 `~/bridge-private/plugin-market/signing-key.pem`），**永不进 git**（`.gitignore` 已忽略 `*.pem`）。

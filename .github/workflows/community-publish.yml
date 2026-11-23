@@ -1,0 +1,62 @@
+# 社区插件发布：打包新版本、建 Release、更新台账、签名并上传社区索引。
+# 触发：intake 合并后的 workflow_dispatch（带 id / author / pr）；维护者直接推 main（手工合并投稿、改下架名单）。
+# 只跑 main 上的可信脚本，读的也只是已经合并进 main 的源码；不执行任何插件代码。
+# 社区签名私钥只在 environment「community-signing」的 secret COMMUNITY_SIGNING_KEY 里，intake 工作流拿不到。
+name: 社区插件发布
+
+on:
+  workflow_dispatch:
+    inputs:
+      id:
+        description: 插件 id（intake 合并后自动填）
+        required: false
+        default: ''
+      author:
+        description: 投稿人的 GitHub 登录名（首次上架时登记为主人）
+        required: false
+        default: ''
+      pr:
+        description: 拉取请求编号
+        required: false
+        default: ''
+  push:
+    branches: [main]
+    paths: ['community/**', 'community-moderation.json']
+
+permissions:
+  contents: write   # 建 Release、推台账
+
+# 串行：台账与索引 seq 只能一份一份地改；排队的不取消，免得漏发
+concurrency:
+  group: community-publish
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    if: github.repository == 'Wode44398/bridge-plugins'
+    runs-on: ubuntu-latest
+    environment: community-signing
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0   # 推台账前可能要 rebase；反查手工合并的 PR 要看目录的提交历史
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: 发布
+        env:
+          GH_TOKEN: ${{ github.token }}
+          COMMUNITY_SIGNING_KEY: ${{ secrets.COMMUNITY_SIGNING_KEY }}
+          IN_ID: ${{ inputs.id }}
+          IN_AUTHOR: ${{ inputs.author }}
+          IN_PR: ${{ inputs.pr }}
+        run: |
+          set --
+          if [ -n "$IN_ID" ]; then set -- "$@" --id "$IN_ID"; fi
+          if [ -n "$IN_AUTHOR" ]; then set -- "$@" --author "$IN_AUTHOR"; fi
+          if [ -n "$IN_PR" ]; then set -- "$@" --pr "$IN_PR"; fi
+          node scripts/community-publish.mjs "$@"

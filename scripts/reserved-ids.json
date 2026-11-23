@@ -1,0 +1,42 @@
+{
+  "builtin": [
+    "preview-host",
+    "public-access",
+    "agent-api",
+    "feedback",
+    "routines",
+    "auto-archive",
+    "pr",
+    "keep-awake",
+    "share",
+    "chat-snapshot",
+    "wallpapers",
+    "devices",
+    "phone-control",
+    "phone-files",
+    "browser",
+    "terminal",
+    "workspace-tools",
+    "session-tools",
+    "visualize",
+    "edge"
+  ],
+  "modules": [
+    "studio",
+    "codex",
+    "agy",
+    "dimensio"
+  ],
+  "fixed": [
+    "claude",
+    "settings",
+    "home",
+    "workspace",
+    "bridge",
+    "official",
+    "community",
+    "market",
+    "plugins",
+    "admin"
+  ]
+}
