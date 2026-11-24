@@ -10,7 +10,7 @@ import { memoryStats, editedByOf, forgetMemoryStats, lastWriteText, ago } from '
 import { agyNote, claudeNote, withFrom, taskText, stripFrom, FROM_CLAUDE, FROM_AGY } from './prompts.mjs';
 import { buildDecor, shortMemDir, memSummary } from './decor.mjs';
 import { makeLive } from './live.mjs';
-import { apply, agySendArgs, sessionIdOf } from '../index.mjs';
+import { apply, agySendArgs, claudeSendArgs, sessionIdOf } from '../index.mjs';
 
 const tmp = mkdtempSync(path.join(os.tmpdir(), 'claude-collab-'));
 test.after(() => { try { rmSync(tmp, { recursive: true, force: true }); } catch {} });
@@ -200,8 +200,9 @@ function fakeCtx({ projects = [], agy = [], claude = {} } = {}) {
     claude: {
       prompt: (fn, o = {}) => reg.prompts.push({ fn, agents: o.agents || ['claude'] }),
       hook: (ev, fn, o = {}) => reg.hooks.push({ ev, fn, matcher: o.matcher }),
-      permission: (fn) => reg.perms.push(fn),
+      permission: (fn, o = {}) => { reg.perms.push(fn); reg.permAgents = o.agents || ['claude']; },
       input: (fn) => reg.inputs.push(fn),
+      ensureProject: async (p) => { reg.ensured = (reg.ensured || 0) + 1; return { id: 'p-made', name: path.basename(p), path: p, created: true }; },
       memoryInfo: async (p) => (samePath(p, repo) ? { dir: memDir, exists: true, index: true, files: 5 } : { dir: path.join(p, 'nomem'), exists: false, index: false, files: 0 }),
     },
     ops: {
@@ -248,6 +249,8 @@ test('接线：菜单项声明照 demo；设为 → 外观两边都有；提示�
     const dlgOther = await on.dialog(HOST, { path: other, agent: 'agy' });
     assert.equal(dlgOther.sections[0].items[0].chip.ok, false);
     assert.match(dlgOther.sections[0].items[0].chip.text, /还没有/);
+    const plainDir = path.join(tmp, 'NotAProject');
+    assert.deepEqual((await on.dialog(HOST, { path: plainDir, agent: 'agy' })).sections[1].items[0].chip, { ok: true, text: '会在 Claude 里建成项目' });
 
     // 设之前：提示都不给
     assert.equal(promptFor(reg, 'agy', { cwd: repo }), '');
@@ -258,7 +261,8 @@ test('接线：菜单项声明照 demo；设为 → 外观两边都有；提示�
     assert.deepEqual(r.undo, { label: '撤销', action: 'collab-off' });
     assert.match(r.toast, /Repo 已和 Claude 共用/);
     const saved = ctx.store.get('folders')[0];
-    assert.deepEqual([saved.memoryDir, saved.askFirst, saved.claudeProject], [memDir, false, { id: 'p-repo', name: 'Repo' }]);
+    assert.deepEqual([saved.memoryDir, saved.askFirst, saved.claudeProject], [memDir, false, { id: 'p-made', name: 'Repo' }]);
+    assert.equal(reg.ensured, 1, '设为协作空间时确保 Claude 项目');
 
     // 外观：两个分页各一条；Claude 分页的 peerSessions 只有这个文件夹（含 worktree）的 agy 会话
     const ag = await reg.decor[0].list(HOST, { agent: 'agy' });
@@ -323,6 +327,15 @@ test('接线：跨 agent 消息——抬头、新会话开在协作文件夹、�
     assert.equal(reg.perms[0]({ tool: 'mcp__bridge__call', input: call }, turn), 'ask');
     assert.equal(reg.perms[0]({ tool: 'mcp__bridge__call', input: { op: 'sessions.read', args: { agent: 'agy' } } }, turn), undefined, '读类不拦');
     assert.equal(reg.perms[0]({ tool: 'mcp__bridge__call', input: call }, { cwd: other }), undefined);
+    // agy → Claude：同一条策略也管 agy（agents 含 agy），认 agy 的工具名 mcp_bridge_call 与不带 agent 的 chat.send
+    assert.deepEqual(reg.permAgents, ['claude', 'agy']);
+    const agyTurn = { agent: 'agy', cwd: path.join(wt, 'sub') };
+    assert.equal(reg.perms[0]({ tool: 'mcp_bridge_call', input: { op: 'chat.send', args: { message: 'hi' } } }, agyTurn), 'ask');
+    assert.equal(reg.perms[0]({ tool: 'mcp_bridge_call', input: { op: 'chat.send', args: { agent: 'claude', message: 'hi', sessionId: 'c1' } } }, agyTurn), 'ask');
+    assert.equal(reg.perms[0]({ tool: 'mcp_bridge_call', input: { op: 'sessions.list', args: {} } }, agyTurn), undefined);
+    assert.equal(reg.perms[0]({ tool: 'run_command', input: { CommandLine: 'chat.send' } }, agyTurn), undefined);
+    assert.equal(reg.perms[0]({ tool: 'mcp_bridge_call', input: { op: 'chat.send', args: {} } }, { agent: 'agy', cwd: other }), undefined);
+    assert.deepEqual(claudeSendArgs({ op: 'chat.send', args: { agent: 'agy' } }), null);
 
     // Claude 开的 agy 新会话：从工具结果里记下
     post.fn({ tool_input: r1.input, tool_response: [{ type: 'text', text: JSON.stringify({ sessionId: 'agy-new-1', status: 'running' }) }] }, turn);
@@ -331,7 +344,9 @@ test('接线：跨 agent 消息——抬头、新会话开在协作文件夹、�
     // agy 经 bridge 操作发来的：Claude 那份带抬头；用户自己发的不动
     const inp = reg.inputs[0];
     emit(reg, 'turn.start', { agent: 'agy', cwd: repo, sessionId: 'agy-9', message: '问问 Claude' });
-    assert.equal(inp({ message: '帮我出 apk' }, { via: 'agy', cwd: repo }).message, `${FROM_AGY}（Antigravity 会话 agy-9）\n\n帮我出 apk`);
+    const hinted = inp({ message: '帮我出 apk' }, { via: 'agy', cwd: repo });
+    assert.equal(hinted.message, undefined, '用户原话不动（抬头不进会话标题）');
+    assert.ok(hinted.hint.startsWith(`这条消息${FROM_AGY}（Antigravity 会话 agy-9），是 Antigravity 经 bridge 发来的，不是用户本人说的`));
     assert.equal(inp({ message: '帮我出 apk' }, { cwd: repo }), undefined);
     assert.equal(inp({ message: 'x' }, { via: 'agy', cwd: other }), undefined);
 

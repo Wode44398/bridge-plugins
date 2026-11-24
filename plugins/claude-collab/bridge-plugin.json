@@ -7,6 +7,6 @@
   "homepage": "https://github.com/Wode44398/bridge-plugins",
   "entry": "index.mjs",
   "category": "agent-tools",
-  "engines": { "bridge": ">=8.88", "pluginApi": 3 },
-  "permissions": ["ui", "events", "claude.tools", "claude.control", "claude.memory", "ops"]
+  "engines": { "bridge": ">=8.89", "pluginApi": 3 },
+  "permissions": ["ui", "events", "claude.tools", "claude.control", "claude.memory", "claude.projects", "ops"]
 }

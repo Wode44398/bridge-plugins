@@ -16,7 +16,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { belongsTo, samePath, baseName } from './lib/paths.mjs';
 import { memoryStats, forgetMemoryStats } from './lib/memory.mjs';
-import { agyNote, claudeNote, withFrom, stripFrom, FROM_CLAUDE, FROM_AGY } from './lib/prompts.mjs';
+import { agyNote, claudeNote, withFrom, stripFrom, fromAgyHint, FROM_CLAUDE } from './lib/prompts.mjs';
 import { makeLive } from './lib/live.mjs';
 import { buildDecor, shortMemDir, memSummary, NAMES } from './lib/decor.mjs';
 
@@ -30,6 +30,14 @@ export function agySendArgs(toolInput) {
   const ti = toolInput && typeof toolInput === 'object' ? toolInput : null;
   if (!ti || ti.op !== 'chat.send' || !ti.args || typeof ti.args !== 'object' || ti.args.agent !== 'agy') return null;
   return ti.args;
+}
+
+/** mcp_bridge_call（agy）的入参是不是「发给 Claude」（chat.send，不带 agent 或 agent:'claude'）；是 → 它的 args。 */
+export function claudeSendArgs(toolInput) {
+  const ti = toolInput && typeof toolInput === 'object' ? toolInput : null;
+  if (!ti || ti.op !== 'chat.send') return null;
+  const a = ti.args && typeof ti.args === 'object' ? ti.args : {};
+  return !a.agent || a.agent === 'claude' ? a : null;
 }
 
 /** bridge 操作结果里的会话 id（MCP 结果是 [{ type:'text', text: JSON }]）。 */
@@ -211,7 +219,7 @@ export function apply(ctx) {
           label: 'Claude 在这里会',
           items: [{
             agent: 'claude', title: '看 Antigravity 的对话，也能发消息、开新会话', desc: 'Claude 侧栏的这个项目下会多出 Antigravity 的对话',
-            chip: pj ? { ok: true, text: `Claude 项目「${pj.name}」` } : { ok: false, text: '这个文件夹在 Claude 那边还不是项目：在 Claude 侧栏把它加成项目后那边才显示' },
+            chip: pj ? { ok: true, text: `Claude 项目「${pj.name}」` } : { ok: true, text: '会在 Claude 里建成项目' },
           }],
         },
       ],
@@ -223,14 +231,20 @@ export function apply(ctx) {
   }
 
   const peerName = (agent) => NAMES[agent === 'claude' ? 'agy' : 'claude'];
+  async function ensureProject(p, who) {
+    const r = await quiet(() => ctx.claude.ensureProject(p, { who }), null);
+    if (r) { cache.clear(); return { id: String(r.id), name: String(r.name || baseName(p)) }; }
+    return projectFor(await quiet(() => claudeProjects(who), []), p);
+  }
 
   ctx.ui.workspaceAction({
     id: 'collab-on', label: '设为和 Claude 的协作工作空间', icon: 'claude', agents: ['agy'], when: 'plain', decor: DECOR, danger: false,
     dialog: (who, v) => dialogFor(who, v, false),
     async handler(who, { path: p, values, agent }) {
       if (find(p)) return '这个文件夹已经是协作空间了';
-      const [info, projects] = await Promise.all([quiet(() => ctx.claude.memoryInfo(p, { who }), null), quiet(() => claudeProjects(who), [])]);
-      save([...folders(), { path: p, memoryDir: info?.dir || '', askFirst: !!values.askFirst, at: Date.now(), claudeProject: projectFor(projects, p) }]);
+      // Claude 那边要有这个项目，侧栏才画得出来、agy 才开得了 Claude 会话：不是就建（取消协作不删）
+      const [info, pj] = await Promise.all([quiet(() => ctx.claude.memoryInfo(p, { who }), null), ensureProject(p, who)]);
+      save([...folders(), { path: p, memoryDir: info?.dir || '', askFirst: !!values.askFirst, at: Date.now(), claudeProject: pj }]);
       lastOff = null;
       refresh(0);
       const peer = peerName(agent);
@@ -243,8 +257,8 @@ export function apply(ctx) {
     async handler(who, { path: p, values }) {
       const f = find(p);
       if (!f) return '这个文件夹已经不是协作空间了';
-      const info = await quiet(() => ctx.claude.memoryInfo(p, { who }), null);
-      save(folders().map((x) => (x === f || samePath(x.path, p) ? { ...x, askFirst: !!values.askFirst, memoryDir: info?.dir || x.memoryDir || '' } : x)));
+      const [info, pj] = await Promise.all([quiet(() => ctx.claude.memoryInfo(p, { who }), null), ensureProject(p, who)]);
+      save(folders().map((x) => (x === f || samePath(x.path, p) ? { ...x, askFirst: !!values.askFirst, memoryDir: info?.dir || x.memoryDir || '', claudeProject: pj || x.claudeProject || null } : x)));
       refresh(0);
       return { toast: values.askFirst ? '协作设置已保存：互相发消息前会先问你' : '协作设置已保存', decorChanged: true };
     },
@@ -286,11 +300,13 @@ export function apply(ctx) {
     if (!f.askFirst) return { input: ti };
     return { decision: 'ask', reason: `「互相发消息前先问我」开着：Claude 要给 Antigravity ${a.sessionId ? '发一条消息' : '开一个新会话'}`, input: ti };
   }, { matcher: 'mcp__bridge__call' });
-  // 绕过权限下 bridge 本来不弹卡：要用户本人批（插件接口八期 claude.permission.ask）
+  // 「先问我」：两边互相发消息、开会话都要用户本人批——绕过权限 / 完全放行下也弹卡（插件接口八期 claude.permission.ask / .agy）
+  //   Claude → agy：mcp__bridge__call 的 chat.send 带 agent:'agy'；agy → Claude：mcp_bridge_call 的 chat.send 不带 agent 或 agent:'claude'
   ctx.claude.permission(({ tool, input }, turn) => {
-    if (tool !== 'mcp__bridge__call' || !agySendArgs(input)) return undefined;
+    const cross = turn?.agent === 'agy' ? tool === 'mcp_bridge_call' && !!claudeSendArgs(input) : tool === 'mcp__bridge__call' && !!agySendArgs(input);
+    if (!cross) return undefined;
     return memberOf(turnCwd(turn))?.askFirst ? 'ask' : undefined;
-  });
+  }, { agents: ['claude', 'agy'] });
   // Claude 开的 Antigravity 新会话：记下「谁开的」
   ctx.claude.hook('PostToolUse', (input, turn) => {
     const a = agySendArgs(input?.tool_input);
@@ -299,13 +315,13 @@ export function apply(ctx) {
     if (sid) { setOrigin('agy', sid, 'claude'); refresh(); }
     return undefined;
   }, { matcher: 'mcp__bridge__call' });
-  // Antigravity 经 bridge 操作发来的：Claude 收到的那份带抬头（界面上显示的仍是原文）
-  ctx.claude.input(({ message }, turn) => {
+  // Antigravity 经 bridge 操作发来的：给 Claude 一段旁注说明来源（hint：模型看得到，会话标题、历史气泡都不带它）
+  ctx.claude.input((_m, turn) => {
     if (turn?.via !== 'agy') return undefined;
     const f = memberOf(turnCwd(turn));
     if (!f) return undefined;
     const agyRuns = live.inFolder((cwd) => belongsTo(cwd, f.path)).filter((r) => r.agent === 'agy' && r.sid);
-    return { message: withFrom(FROM_AGY, message, agyRuns.length === 1 ? `Antigravity 会话 ${agyRuns[0].sid}` : '') };
+    return { hint: fromAgyHint(agyRuns.length === 1 ? agyRuns[0].sid : '') };
   });
 
   // ── 详情页状态块 ─────────────────────────────────────────────────────
