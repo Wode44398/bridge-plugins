@@ -1,0 +1,11 @@
+{
+  "name": "Claude collaboration workspace",
+  "description": "Let Antigravity and Claude share a folder: one memory, and each can read the other's chats, send it messages and start sessions. Right-click (long-press on a phone) a folder in the Antigravity sidebar and choose \"Make this a shared workspace with Claude\"; from then on Antigravity reads and updates Claude's memory there by itself, and both sidebars show the folder as shared. Host only.",
+  "ui": {
+    "workspaceAction": {
+      "collab-on": { "label": "Make this a shared workspace with Claude" },
+      "collab-edit": { "label": "Sharing settings…" },
+      "collab-off": { "label": "Stop sharing" }
+    }
+  }
+}
