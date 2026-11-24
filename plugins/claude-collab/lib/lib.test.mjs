@@ -120,6 +120,7 @@ test('外观条目：agy 分页——底板、双方标识、Claude 在干活的
   assert.deepEqual([it.path, it.panel, it.peers], [repo, true, ['agy', 'claude']]);
   assert.deepEqual(it.busy, ['claude']);
   assert.equal(it.note, '与 Claude 共用 · 记忆 214 篇');
+  assert.deepEqual(it.open, { folder: { agent: 'claude', path: it.path } });
   assert.deepEqual(it.status, { agent: 'claude', text: '正在出 apk 验脚注窄屏', since: now - 42_000, open: { session: { agent: 'claude', id: 'c1' } } });
   assert.equal(it.footer.text, '共用记忆 214 篇 · agy 3 分钟前写入');
   assert.deepEqual(it.footer.open, { file: { rel: 'MEMORY.md', ws: f.memoryDir } });
@@ -145,7 +146,8 @@ test('外观条目：Claude 分页——状态是 Antigravity 在跑的那个、
     origins: { claude: { c2: 'agy' }, agy: {} },
   });
   assert.deepEqual(it.busy.sort(), ['agy']);
-  assert.equal(it.note, '与 Antigravity 共用 · 还没有记忆');
+  assert.equal(it.note, undefined);   // Claude 侧项目名下不写小字
+  assert.deepEqual(it.open, { folder: { agent: 'agy', path: it.path } });
   assert.equal(it.status.agent, 'agy');
   assert.equal(it.status.text, '把脚注再收一收');
   assert.equal(it.footer.text, '共用记忆 0 篇');

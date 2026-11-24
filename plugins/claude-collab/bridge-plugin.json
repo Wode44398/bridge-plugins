@@ -1,7 +1,7 @@
 {
   "id": "claude-collab",
   "name": "Claude 协作工作空间",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "让 Antigravity 和 Claude 共用一个文件夹：共用记忆，互相看对话、发消息、开会话。在 Antigravity 侧栏右键（手机长按）一个文件夹，选「设为和 Claude 的协作工作空间」；设好后 Antigravity 在那里自己知道读写 Claude 的记忆，两边侧栏都看得出这个文件夹是共用的。只对服务器主机开放。",
   "author": "claude-bridge",
   "homepage": "https://github.com/Wode44398/bridge-plugins",

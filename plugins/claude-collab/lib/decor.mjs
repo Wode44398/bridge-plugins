@@ -113,7 +113,10 @@ export function buildDecor({ f, agent, mem, sessions = {}, runs = [], origins = 
     panel: true,
     peers: ['agy', 'claude'],
     busy: [...busy],
-    note: `与 ${NAMES[other]} 共用 · ${memText}`,
+    // Claude 侧项目名下不写小字（老板 11-24：在不在跑看方块里的标志动不动）；Antigravity 侧 note 放在悬停卡里
+    ...(agent === 'agy' ? { note: `与 ${NAMES[other]} 共用 · ${memText}` } : {}),
+    // 点文件夹上的标识（Claude 侧方块 / Antigravity 侧头像组）= 到对方分页的这个文件夹（bridge >=8.92 认 folder，旧版忽略）
+    open: { folder: { agent: other, path: f.path } },
     ...(status ? { status } : {}),
     footer: { icon: 'book', text: `共用记忆 ${mem?.files || 0} 篇${memLine ? ' · ' + memLine : ''}`, open: memTarget || { action: 'collab-edit' } },
     card,
