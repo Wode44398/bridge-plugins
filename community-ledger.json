@@ -1,1 +1,41 @@
-{"seq":0,"owners":{},"plugins":{}}
+{
+  "seq": 1,
+  "owners": {
+    "memo-pad": "Wode44398"
+  },
+  "plugins": {
+    "memo-pad": {
+      "meta": {
+        "name": "便签",
+        "nameEn": "Memo pad",
+        "description": "主页多一个便签应用：随手记一段文字，停手一秒自动保存，存在服务器上、每个人一份，换台设备打开也还在。纯页面插件，没有服务端代码。",
+        "descriptionEn": "A memo app on Home: jot down some text and it saves itself a second after you stop typing — kept on the server, one per person, still there on any device. Page-only plugin, no server code.",
+        "category": "third-party",
+        "author": "Wode44398"
+      },
+      "versions": [
+        {
+          "version": "1.0.0",
+          "engines": {
+            "pluginApi": 3
+          },
+          "restart": false,
+          "url": "https://github.com/Wode44398/bridge-plugins/releases/download/c-memo-pad-v1.0.0/memo-pad-1.0.0.zip",
+          "sha256": "e172c39af975e5ec0d8bfd2794c57730528857936eb9a4bd8d3a6b0327aa7583",
+          "size": 5776,
+          "date": "2026-11-24",
+          "notes": "首个版本：一张便签，停手一秒自动保存，显示字数；清空前会先确认。",
+          "kind": "page",
+          "caps": [],
+          "permissions": [
+            "ui"
+          ],
+          "commit": "e5b2cd7561758559e713bc8eb1d162e6a6d5f5b9",
+          "source": "https://github.com/Wode44398/bridge-plugins/tree/e5b2cd7561758559e713bc8eb1d162e6a6d5f5b9/community/memo-pad",
+          "pr": 1
+        }
+      ]
+    }
+  },
+  "indexHash": "c634df7e0c4ff0e316441266f35360e17075ce881d3ff23c93ac2cfc2ec57995"
+}
