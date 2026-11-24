@@ -1,5 +1,5 @@
 {
-  "seq": 2,
+  "seq": 3,
   "plugins": {
     "hello-world": [
       {
@@ -44,6 +44,36 @@
         "size": 44668,
         "date": "2026-11-02",
         "notes": "首个市场版本：每个群一个隔离沙箱、群聊记录（含图片）、Claude 能把文件直接发进群、@机器人 /chat 发专属对话页、群管理在群里暂停 / 继续 / 重置；由 bridge 拉起 NapCat 时自动写好网络配置，控制台里扫码登录、逐群开关回答与改模型；每群可设专属提示词和只读资料目录、群友可经 Claude 上报问题；可把 GitHub 仓库的新正式版自动归纳成公告发进群；每天回答轮数有上限。需要 bridge 7.03 以上。"
+      }
+    ],
+    "android": [
+      {
+        "version": "1.0.0",
+        "engines": {
+          "bridge": ">=8.83",
+          "pluginApi": 3
+        },
+        "restart": false,
+        "url": "https://github.com/Wode44398/bridge-plugins/releases/download/android-v1.0.0/android-1.0.0.zip",
+        "sha256": "79b1455f636ae7ebc076ed54f6e5896a59c9747448d64c2776ef947c5bf841f4",
+        "size": 905353,
+        "date": "2026-11-24",
+        "notes": "首个版本：工作区「安卓」卡（Claude、ChatGPT、Antigravity、dimensio 都有）——模拟器 / 真机实时画面，鼠标、多指、键盘、中文输入直接操作；放宽后左画面右工具：Logcat、应用（拖 apk 安装）、设备文件、定位电池短信来电等模拟、快照、控件树；录屏、新建虚拟设备、无线连接手机。agent 的 android 工具：装包、点按、截图、读日志、录屏，附安卓操作员子 agent。需要 bridge 8.83 以上。"
+      }
+    ],
+    "claude-collab": [
+      {
+        "version": "1.0.1",
+        "engines": {
+          "bridge": ">=8.89",
+          "pluginApi": 3
+        },
+        "restart": false,
+        "url": "https://github.com/Wode44398/bridge-plugins/releases/download/claude-collab-v1.0.1/claude-collab-1.0.1.zip",
+        "sha256": "1737800d112c72ae5d7c006a088d6ebcd49cad89ca044652cb2f91ff8b3ffa3e",
+        "size": 21284,
+        "date": "2026-11-24",
+        "notes": "首个上架版本，包含 1.0.0 的全部功能：Antigravity 侧栏文件夹菜单「设为和 Claude 的协作工作空间」，之后两边侧栏都显示为协作文件夹（谁在干活、共用记忆、谁开的会话），Antigravity 在这里开的会话会自动读写 Claude 的记忆，两边能互相看对话、发消息、开会话，可选「互相发消息前先问我」。这一版新增：点文件夹上对方的标识（Claude 侧的 Antigravity 小方块、Antigravity 侧的头像组）直接跳到对方分页的这个文件夹；Claude 侧共用项目名下不再写「Antigravity 在跑」的小字。需要 bridge 8.89 以上，点标识跳转要 8.94 以上。"
       }
     ]
   }
