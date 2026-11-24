@@ -1,6 +1,6 @@
 {
   "nameEn": "Android emulator",
-  "descriptionEn": "An Android card in every agent's workspace: watch and control an Android emulator or a USB / wireless phone live, with Android Studio–style Logcat, apps, files, simulated controls, snapshots, layout inspector and screen recording. Claude, dimensio and Antigravity get an android tool for the same device. Host only; needs the Android SDK on the server computer.",
+  "descriptionEn": "An Android card in every agent's workspace: watch and control an Android emulator or a USB / wireless phone live, with Android Studio–style Logcat, apps, files, simulated controls, snapshots, layout inspector and screen recording. Claude, dimensio, Antigravity and ChatGPT (Codex) get an android tool for the same device. Host only; needs the Android SDK on the server computer.",
   "notes": {
     "1.0.0": "首个版本：工作区「安卓」卡（Claude、ChatGPT、Antigravity、dimensio 都有）——模拟器 / 真机实时画面，鼠标、多指、键盘、中文输入直接操作；放宽后左画面右工具：Logcat、应用（拖 apk 安装）、设备文件、定位电池短信来电等模拟、快照、控件树；录屏、新建虚拟设备、无线连接手机。agent 的 android 工具：装包、点按、截图、读日志、录屏，附安卓操作员子 agent。需要 bridge 8.83 以上。"
   }

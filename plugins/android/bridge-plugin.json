@@ -2,7 +2,7 @@
   "id": "android",
   "name": "安卓模拟器",
   "version": "1.0.0",
-  "description": "工作区里的「安卓」卡：看着安卓模拟器（或连在服务器电脑上的真机）的实时画面直接操作，卡片放宽后像 Android Studio 一样带 Logcat、应用、设备文件、模拟控制、快照、控件树、录屏；Claude、dimensio、Antigravity 也能用同一台设备装包、点按、截图、读日志。只对服务器主机开放，需要服务器电脑上装有 Android SDK 和模拟器。",
+  "description": "工作区里的「安卓」卡：看着安卓模拟器（或连在服务器电脑上的真机）的实时画面直接操作，卡片放宽后像 Android Studio 一样带 Logcat、应用、设备文件、模拟控制、快照、控件树、录屏；Claude、dimensio、Antigravity、ChatGPT（Codex）也能用同一台设备装包、点按、截图、读日志。只对服务器主机开放，需要服务器电脑上装有 Android SDK 和模拟器。",
   "author": "claude-bridge",
   "homepage": "https://github.com/Wode44398/bridge-plugins",
   "entry": "index.mjs",
@@ -45,7 +45,7 @@
       "type": "boolean",
       "label": "给 agent 安卓工具",
       "default": true,
-      "desc": "关掉后卡片照常能用，只是 Claude、dimensio、Antigravity 不再拿到 android 工具。"
+      "desc": "关掉后卡片照常能用，只是各 agent 不再拿到 android 工具。"
     }
   }
 }
