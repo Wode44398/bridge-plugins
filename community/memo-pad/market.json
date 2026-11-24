@@ -1,0 +1,7 @@
+{
+  "nameEn": "Memo pad",
+  "descriptionEn": "A memo app on Home: jot down some text and it saves itself a second after you stop typing — kept on the server, one per person, still there on any device. Page-only plugin, no server code.",
+  "notes": {
+    "1.0.0": "首个版本：一张便签，停手一秒自动保存，显示字数；清空前会先确认。"
+  }
+}
