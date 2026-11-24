@@ -2,6 +2,7 @@
   "nameEn": "Claude collaboration workspace",
   "descriptionEn": "Let Antigravity and Claude share a folder: one memory, and each can read the other's chats, send it messages and start sessions. Right-click (long-press on a phone) a folder in the Antigravity sidebar and choose \"Make this a shared workspace with Claude\"; from then on Antigravity reads and updates Claude's memory there by itself, and both sidebars show the folder as shared. Host only.",
   "notes": {
-    "1.0.0": "首个版本：Antigravity 侧栏文件夹菜单「设为和 Claude 的协作工作空间」（带确认框、可撤销），之后有「协作设置…」「取消协作」；协作文件夹在 Antigravity 与 Claude 两边侧栏都换一身样子——底板、双方标识、谁在干活、共用记忆行（篇数与最近谁写的）、悬停卡、谁开的会话，Claude 侧栏的项目下另列 Antigravity 的对话。Antigravity 在协作文件夹里的新会话开场自动知道去读 Claude 的记忆、照规矩写回（last_edited_by 记 agy）、怎么找 Claude；Claude 那边也知道怎么看 Antigravity 的对话、给它发消息、开新会话。两边互相发的消息带「来自 …」抬头；可选「互相发消息前先问我」。设为协作空间时自动把文件夹建成 Claude 项目；「先问我」两个方向都拦（完全放行下也弹审批）。需要 bridge 8.89 以上。"
+    "1.0.0": "首个版本：Antigravity 侧栏文件夹菜单「设为和 Claude 的协作工作空间」（带确认框、可撤销），之后有「协作设置…」「取消协作」；协作文件夹在 Antigravity 与 Claude 两边侧栏都换一身样子——底板、双方标识、谁在干活、共用记忆行（篇数与最近谁写的）、悬停卡、谁开的会话，Claude 侧栏的项目下另列 Antigravity 的对话。Antigravity 在协作文件夹里的新会话开场自动知道去读 Claude 的记忆、照规矩写回（last_edited_by 记 agy）、怎么找 Claude；Claude 那边也知道怎么看 Antigravity 的对话、给它发消息、开新会话。两边互相发的消息带「来自 …」抬头；可选「互相发消息前先问我」。设为协作空间时自动把文件夹建成 Claude 项目；「先问我」两个方向都拦（完全放行下也弹审批）。需要 bridge 8.89 以上。",
+    "1.0.1": "首个上架版本，包含 1.0.0 的全部功能：Antigravity 侧栏文件夹菜单「设为和 Claude 的协作工作空间」，之后两边侧栏都显示为协作文件夹（谁在干活、共用记忆、谁开的会话），Antigravity 在这里开的会话会自动读写 Claude 的记忆，两边能互相看对话、发消息、开会话，可选「互相发消息前先问我」。这一版新增：点文件夹上对方的标识（Claude 侧的 Antigravity 小方块、Antigravity 侧的头像组）直接跳到对方分页的这个文件夹；Claude 侧共用项目名下不再写「Antigravity 在跑」的小字。需要 bridge 8.89 以上，点标识跳转要 8.94 以上。"
   }
 }
