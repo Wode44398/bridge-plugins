@@ -7,7 +7,8 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { createRequire } from 'node:module';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
-const BRIDGE_WEB = process.env.BRIDGE_WEB || 'C:/Users/sunts/claude-bridge/web';
+// 依赖从哪找：默认就是 page/ 自己（page/node_modules 是指向 bridge 前端依赖的目录联接）；也可以用环境变量 BRIDGE_WEB 指到 <claude-bridge>/web。
+const BRIDGE_WEB = process.env.BRIDGE_WEB || here;
 const req = createRequire(path.join(BRIDGE_WEB, 'package.json'));
 const { svelte } = await import(pathToFileURL(req.resolve('@sveltejs/vite-plugin-svelte')).href);
 
