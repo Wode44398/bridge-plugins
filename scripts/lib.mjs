@@ -88,6 +88,9 @@ export function listPlugins(root) {
 
 // ---- 打包 / 哈希 ----
 const EXCLUDE = (n) => n === 'market.json' || n === 'node_modules' || n === '.git' || /\.test\.mjs$/.test(n);
+// 子目录里的也要排除：EXCLUDE 只筛顶层，bsdtar 会顺着目录联接往下打（android 的 page/node_modules 是指向 bridge 前端依赖的联接，
+// 不排除就把 7000 多个文件、196MB 的依赖打进包里——11-24 首次上架 android 时演练发现）。
+const NESTED_EXCLUDES = ['node_modules', '.git', '*.test.mjs'].flatMap((x) => ['--exclude', x]);
 
 export function zipPlugin(dir, outFile) {
   const entries = fs.readdirSync(dir).filter((n) => !EXCLUDE(n));
@@ -95,7 +98,7 @@ export function zipPlugin(dir, outFile) {
   const out = path.resolve(outFile);
   fs.mkdirSync(path.dirname(out), { recursive: true });
   if (fs.existsSync(out)) fs.rmSync(out);
-  execFileSync(BSDTAR, ['-a', '-c', '-f', out, '--options', 'hdrcharset=UTF-8', '-C', dir, ...entries], { stdio: 'pipe' });
+  execFileSync(BSDTAR, ['-a', '-c', '-f', out, '--options', 'hdrcharset=UTF-8', ...NESTED_EXCLUDES, '-C', dir, ...entries], { stdio: 'pipe' });
   return out;
 }
 
