@@ -1,0 +1,11 @@
+{
+  "name": "Memo pad",
+  "description": "A memo app on Home: jot down some text and it saves itself a second after you stop typing — kept on the server, one per person, still there on any device. Page-only plugin, no server code.",
+  "ui": {
+    "app": {
+      "memo": {
+        "title": "Memo pad"
+      }
+    }
+  }
+}

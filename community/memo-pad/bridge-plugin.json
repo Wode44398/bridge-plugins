@@ -1,0 +1,29 @@
+{
+  "id": "memo-pad",
+  "name": "便签",
+  "version": "1.0.0",
+  "description": "主页多一个便签应用：随手记一段文字，停手一秒自动保存，存在服务器上、每个人一份，换台设备打开也还在。纯页面插件，没有服务端代码。",
+  "author": "Wode44398",
+  "category": "third-party",
+  "ui": {
+    "apps": [
+      {
+        "id": "memo",
+        "title": "便签",
+        "titleEn": "Memo pad",
+        "page": "web/app.html",
+        "icon": {
+          "light": "web/icon-light.svg",
+          "dark": "web/icon-dark.svg"
+        },
+        "who": "members"
+      }
+    ]
+  },
+  "engines": {
+    "pluginApi": 3
+  },
+  "permissions": [
+    "ui"
+  ]
+}
